@@ -101,7 +101,7 @@ np.random.seed(10)
 # サンプルサイズ(フレーム数)を指定
 N = 100
 
-# サンプルを生成
+# 標本を生成
 x_n = np.random.normal(loc=mu_pop, scale=sigma_pop, size=N)
 
 
@@ -124,7 +124,7 @@ print('z_α/2:', cr_bound_lower, cr_bound_upper)
 
 # %%
 
-### 信頼区間の推定の可視化 -----
+### 信頼区間の計算の可視化 -----
 
 # 母分布のp軸の範囲を設定
 u = 0.5
@@ -157,7 +157,7 @@ fig, axes = plt.subplots(
     figsize=(12, 12), dpi=100, facecolor='white', 
     constrained_layout=True
 )
-fig.suptitle('Population Mean Confidence Interval (unknown variance)', fontsize=20)
+fig.suptitle('Population Mean Confidence Interval (known variance)', fontsize=20)
 axes2x = [ax.twiny() for ax in axes] # 第2軸の設定用
 ax2y   = axes[0].twinx() # 第2軸の設定用
 
@@ -180,7 +180,7 @@ def update(i):
 
     # 標本統計量を計算
     x_bar     = np.mean(x_n[:n])
-    sigma_hat = np.sqrt(np.var(x_n, ddof=1))
+    sigma_hat = np.sqrt(np.var(x_n[:n], ddof=1)) if n > 1 else np.nan
 
     # 標本分布のパラメータを計算
     mu_smp    = mu_pop
@@ -451,7 +451,7 @@ print('z_α/2:', cr_bound_lower, cr_bound_upper)
 
 # %%
 
-### 信頼区間の推定の可視化 -----
+### 信頼区間の計算の可視化 -----
 
 # μの表示範囲を設定
 k = 3.0
@@ -490,7 +490,7 @@ fig = plt.figure(
     figsize=(12, 12), dpi=100, facecolor='white', 
     constrained_layout=True
 )
-fig.suptitle('Population Mean Confidence Interval (unknown variance)', fontsize=20)
+fig.suptitle('Population Mean Confidence Interval (known variance)', fontsize=20)
 
 # 図を分割
 gs     = GridSpec(nrows=3, ncols=2, figure=fig)
@@ -526,7 +526,7 @@ def update(I):
 
     ##### 乱数の生成 -----
 
-    # サンプルを生成
+    # 標本を生成
     x_n = np.random.normal(loc=mu_pop, scale=sigma_pop, size=N)
 
     # 標本統計量を計算
@@ -700,7 +700,7 @@ def update(I):
     # 外側領域を計算
     tail_z_vec    = np.hstack([
         np.linspace(start=z_min, stop=cr_bound_lower, num=251), 
-        np.nan, 
+        np.nan, # (塗りつぶしの分割用)
         np.linspace(start=cr_bound_upper, stop=z_max, num=251)
     ])
     tail_dens_vec = norm.pdf(x=tail_z_vec, loc=0.0, scale=1.0)
