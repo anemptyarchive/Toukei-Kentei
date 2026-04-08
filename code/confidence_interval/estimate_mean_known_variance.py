@@ -8,6 +8,8 @@
 
 # %%
 
+# ライブラリの読込 --------------------------------------------------------------
+
 # ライブラリを読込
 import numpy as np
 from scipy.stats import norm
@@ -20,8 +22,17 @@ from matplotlib.animation import FuncAnimation
 
 # ディレクトリの設定 -------------------------------------------------------------
 
-# 書き出し先を指定
-dir_path = '../../figure/confidence_interval/estimate_mean_known_variance/'
+# ライブラリを読込
+from pathlib import Path
+
+# ワークスペースを取得
+PROJECT_DIR = Path.cwd()
+print(PROJECT_DIR)
+
+# 書き出し先を設定
+dir_path  = PROJECT_DIR.as_posix()
+dir_path += '/figure/confidence_interval/estimate_mean_known_variance/'
+print(dir_path)
 
 
 # %%
@@ -43,7 +54,7 @@ sigma2_pop = sigma_pop**2
 # x軸の範囲を設定
 k = 3.0
 u = 1.0
-x_size  = sigma_pop # 基準値を指定
+x_size  = sigma_pop # 標準偏差
 x_size *= k # 定数倍
 #x_size  = max(x_size, np.abs(x_n-mu_pop).max()) # 標本と比較
 x_size  = np.ceil(x_size /u)*u # u単位で切り上げ
@@ -124,17 +135,13 @@ print('z_α/2:', cr_bound_lower, cr_bound_upper)
 
 # %%
 
-### 信頼区間の計算の可視化 -----
+### 表示範囲の設定 -----
 
 # 母分布のp軸の範囲を設定
-u = 0.5
-Px_max = np.histogram(
-    a=x_n, bins=class_num, range=(bound_min, bound_max), density=True
-)[0].max() # 全サンプルの密度
-Px_max = np.ceil(Px_max /u)*u # u単位で切り上げ
+Px_max = 0.5
 print(Px_max)
 
-# 標本分布分布のp軸の範囲を設定
+# 標本分布のp軸の範囲を設定
 u = 0.01
 Px_bar_max = norm.pdf(x=mu_pop, loc=mu_pop, scale=sigma_pop/np.sqrt(N)) # 最頻値の確率密度
 Px_bar_max = np.ceil(Px_bar_max /u)*u # u単位で切り上げ
@@ -146,7 +153,10 @@ Pz_max = norm.pdf(x=0.0, loc=0.0, scale=1.0) # 最頻値の確率密度
 Pz_max = np.ceil(Pz_max /u)*u # u単位で切り上げ
 print(Pz_max)
 
+
 # %%
+
+### 信頼区間の計算の可視化 -----
 
 # 余白を設定
 margin_ratio = 0.05
@@ -158,9 +168,8 @@ fig, axes = plt.subplots(
     constrained_layout=True
 )
 fig.suptitle('Population Mean Confidence Interval (known variance)', fontsize=20)
-axes2x = [ax.twiny() for ax in axes] # 第2軸の設定用
-ax2y   = axes[0].twinx() # 第2軸の設定用
-
+axes2x = [ax.twiny() for ax in axes]
+ax2y   = axes[0].twinx()
 # 初期化処理を定義
 def init():
     pass
@@ -179,8 +188,9 @@ def update(i):
     n = i + 1 # サンプル数
 
     # 標本統計量を計算
-    x_bar     = np.mean(x_n[:n])
-    sigma_hat = np.sqrt(np.var(x_n[:n], ddof=1)) if n > 1 else np.nan
+    x_bar      = np.mean(x_n[:n])
+    sigma2_hat = np.var(x_n[:n], ddof=1) if n > 1 else np.nan
+    sigma_hat  = np.sqrt(sigma2_hat)
 
     # 標本分布のパラメータを計算
     mu_smp    = mu_pop
@@ -207,14 +217,15 @@ def update(i):
     ax2x = axes2x[0]
 
     ax.bar(
-        x=center_vec, height=obs_dens_vec, width=class_size, 
+        x=center_vec, height=obs_dens_vec, 
+        width=class_size, 
         color='#00A968', alpha=0.5, 
         label='sample', 
         zorder=8
     ) # 標本
     ax.scatter(
         x=x_n[:n], y=np.tile(0.0, reps=n), 
-        color='black', alpha=0.33, s=25, clip_on=False, 
+        color='black', alpha=0.33, s=25, #clip_on=False, 
         zorder=9
     ) # 標本
     ax.plot(
@@ -223,27 +234,23 @@ def update(i):
         label='population distribution', 
         zorder=10
     ) # 母分布
-    ax.axvline(
-        x=mu_pop, 
-        color='red', linewidth=1.0, linestyle='--', 
-        label='population mean', 
-        zorder=20
-    ) # 母平均
-    ax.axvline(
-        x=x_bar, 
-        color='black', linewidth=1.0, linestyle='--', 
-        zorder=21
-    ) # 標本平均
-    for x, lbl in zip([ci_bound_lower, ci_bound_upper], ['confidence bounds', None]):
+    for idx, x in enumerate([mu_pop, x_bar]):
         ax.axvline(
             x=x, 
+            color=['red', 'black'][idx], linewidth=1.0, linestyle='--', 
+            label=['population mean', None][idx], 
+            zorder=[20, 21][idx]
+        ) # 母・標本平均
+    for idx, mu in enumerate([ci_bound_lower, ci_bound_upper]):
+        ax.axvline(
+            x=mu, 
             color='black', linewidth=1.0, linestyle='-.', 
-            label=lbl, 
+            label='confidence bounds' if idx == 0 else None, 
             zorder=22
         ) # 信頼区間の境界値
     ax.hlines(
         y=0.0, xmin=ci_bound_lower, xmax=ci_bound_upper, 
-        color='purple', linewidth=2.0, 
+        color='purple', linewidth=2.0, #clip_on=False, 
         label='confidence interval', 
         zorder=30
     ) # 信頼区間
@@ -267,7 +274,7 @@ def update(i):
     Nx_max    = Px_max    * class_size*n # 度数軸の範囲を設定
     ax2y.set_yticks(ticks=freq_vals, labels=[f'{y:.1f}' for y in freq_vals]) # 度数軸目盛
     ax2y.set_ylim(ymin=-margin_ratio*Nx_max, ymax=(1.0+margin_ratio)*Nx_max) # (目盛の共通化用)
-    
+
     ##### 標本分布の作図 -----
 
     # 標本分布の確率密度を計算
@@ -283,7 +290,7 @@ def update(i):
 
     ax.scatter(
         x=x_bar, y=0.0, 
-        color='#00A968', s=100, clip_on=False, 
+        color='#00A968', s=100, #clip_on=False, 
         zorder=9
     ) # 標本平均
     ax.plot(
@@ -292,20 +299,16 @@ def update(i):
         label='sample distribution', 
         zorder=10
     ) # 標本分布
-    ax.axvline(
-        x=mu_pop, 
-        color='red', linewidth=1.0, linestyle='--', 
-        zorder=20
-    ) # 母平均
-    ax.axvline(
-        x=x_bar, 
-        color='black', linewidth=1.0, linestyle='--', 
-        label='sample mean', 
-        zorder=21
-    ) # 標本平均
-    for x in [ci_bound_lower, ci_bound_upper]:
+    for idx, x in enumerate([mu_pop, x_bar]):
         ax.axvline(
             x=x, 
+            color=['red', 'black'][idx], linewidth=1.0, linestyle='--', 
+            label=[None, 'sample mean'][idx], 
+            zorder=[20, 21][idx]
+        ) # 母・標本平均
+    for mu in [ci_bound_lower, ci_bound_upper]:
+        ax.axvline(
+            x=mu, 
             color='black', linewidth=1.0, linestyle='-.', 
             zorder=22
         ) # 信頼区間の境界値
@@ -325,7 +328,7 @@ def update(i):
     ax.grid()
     ax.set_xlim(xmin=x_min, xmax=x_max)   # (目盛の共通化用)
     ax2x.set_xlim(xmin=x_min, xmax=x_max) # (目盛の共通化用)
-    ax.set_ylim(ymin=-margin_ratio*Px_bar_max, ymax=(1.0+margin_ratio)*Px_bar_max) # 表示範囲を固定
+    ax.set_ylim(ymin=-margin_ratio*Px_bar_max, ymax=(1.0+margin_ratio)*Px_bar_max) # 余白を追加
 
     # 目盛ラベルの表示を調整(ラベルが重なる対策用)
     halignments = ['right', 'center', 'left']
@@ -370,21 +373,17 @@ def update(i):
         label='central region', 
         zorder=11
     ) # 中央領域
-    ax.axvline(
-        x=(mu_pop - x_bar) / sigma_smp, 
-        color='red', linewidth=1.0, linestyle='--', 
-        zorder=20
-    ) # 母平均
-    ax.axvline(
-        x=0.0, 
-        color='black', linewidth=1.0, linestyle='--', 
-        zorder=21
-    ) # 標本平均
-    for z, lbl in zip([cr_bound_lower, cr_bound_upper], ['central bounds', None]):
+    for idx, z in enumerate([(mu_pop-x_bar)/sigma_smp, 0.0]):
+        ax.axvline(
+            x=z, 
+            color=['red', 'black'][idx], linewidth=1.0, linestyle='--', 
+            zorder=[20, 21][idx]
+        ) # 母・標本平均
+    for idx, z in enumerate([cr_bound_lower, cr_bound_upper]):
         ax.axvline(
             x=z, 
             color='black', linewidth=1.0, linestyle='-.', 
-            label=lbl, 
+            label='central bounds' if idx == 0 else None, 
             zorder=22
         ) # 中央領域の境界値
     ax.hlines(
@@ -404,7 +403,7 @@ def update(i):
     ax.grid()
     ax.set_xlim(xmin=z_min, xmax=z_max)   # (目盛の共通化用)
     ax2x.set_xlim(xmin=z_min, xmax=z_max) # (目盛の共通化用)
-    ax.set_ylim(ymin=-margin_ratio*Pz_max, ymax=(1.0+margin_ratio)*Pz_max) # 表示範囲を固定
+    ax.set_ylim(ymin=-margin_ratio*Pz_max, ymax=(1.0+margin_ratio)*Pz_max) # 余白を追加
 
 # 動画を作成
 anim = FuncAnimation(
@@ -451,7 +450,7 @@ print('z_α/2:', cr_bound_lower, cr_bound_upper)
 
 # %%
 
-### 信頼区間の計算の可視化 -----
+### 表示範囲の設定 -----
 
 # μの表示範囲を設定
 k = 3.0
@@ -465,10 +464,12 @@ print('μ-axis size:', mu_min, mu_max)
 
 
 # 母分布のp軸の範囲を設定
-Px_max = 0.5
+u = 0.15
+Px_max = pop_dens_vec.max()
+Px_max = np.ceil(Px_max /u)*u # u単位で切り上げ
 print(Px_max)
 
-# 標本分布分布のp軸の範囲を設定
+# 標本分布のp軸の範囲を設定
 u = 0.01
 Px_bar_max = norm.pdf(x=mu_pop, loc=mu_pop, scale=sigma_pop/np.sqrt(N)) # 最頻値の確率密度
 Px_bar_max = np.ceil(Px_bar_max /u)*u # u単位で切り上げ
@@ -480,7 +481,10 @@ Pz_max = norm.pdf(x=0.0, loc=0.0, scale=1.0) # 最頻値の確率密度
 Pz_max = np.ceil(Pz_max /u)*u # u単位で切り上げ
 print(Pz_max)
 
+
 # %%
+
+### 信頼区間の計算の可視化 -----
 
 # 余白を設定
 margin_ratio = 0.05
@@ -499,7 +503,7 @@ ax_10  = fig.add_subplot(gs[1, 0])
 ax_20  = fig.add_subplot(gs[2, 0])
 ax_a1  = fig.add_subplot(gs[:, 1])
 axes   = [ax_00, ax_10, ax_20, ax_a1]
-axes2x = [ax.twiny() for ax in axes] # 第2軸の設定用
+axes2x = [ax.twiny() for ax in axes]
 
 # カウントを初期化
 cover_cnt = 0
@@ -530,8 +534,9 @@ def update(I):
     x_n = np.random.normal(loc=mu_pop, scale=sigma_pop, size=N)
 
     # 標本統計量を計算
-    x_bar     = np.mean(x_n)
-    sigma_hat = np.sqrt(np.var(x_n, ddof=1))
+    x_bar      = np.mean(x_n)
+    sigma2_hat = np.var(x_n, ddof=1)
+    sigma_hat  = np.sqrt(sigma2_hat)
 
     # 標本分布のパラメータを計算
     mu_smp    = mu_pop
@@ -542,7 +547,7 @@ def update(I):
     ci_bound_upper = x_bar + cr_bound_upper * sigma_smp
 
     # 被覆を判定
-    cover_flg  = ci_bound_lower <= mu_pop < ci_bound_upper
+    cover_flg  = ci_bound_lower <= mu_pop <= ci_bound_upper
     cover_cnt += cover_flg
 
     ##### 母分布の作図 -----
@@ -569,7 +574,7 @@ def update(I):
     ) # 標本
     ax.scatter(
         x=x_n, y=np.tile(0.0, reps=N), 
-        color='black', alpha=0.33, s=25, clip_on=False, 
+        color='black', alpha=0.33, s=25, #clip_on=False, 
         zorder=9
     ) # 標本
     ax.plot(
@@ -578,27 +583,23 @@ def update(I):
         label='population distribution', 
         zorder=10
     ) # 母分布
-    ax.axvline(
-        x=mu_pop, 
-        color='red', linewidth=1.0, linestyle='--', 
-        label='population mean', 
-        zorder=20
-    ) # 母平均
-    ax.axvline(
-        x=x_bar, 
-        color='black', linewidth=1.0, linestyle='--', 
-        zorder=21
-    ) # 標本平均
-    for x, lbl in zip([ci_bound_lower, ci_bound_upper], ['confidence bounds', None]):
+    for idx, x in enumerate([mu_pop, x_bar]):
         ax.axvline(
             x=x, 
+            color=['red', 'black'][idx], linewidth=1.0, linestyle='--', 
+            label=['population mean', None][idx], 
+            zorder=[20, 21][idx]
+        ) # 母・標本平均
+    for idx, mu in enumerate([ci_bound_lower, ci_bound_upper]):
+        ax.axvline(
+            x=mu, 
             color='black', linewidth=1.0, linestyle='-.', 
-            label=lbl, 
+            label='confidence bounds' if idx == 0 else None, 
             zorder=22
         ) # 信頼区間の境界値
     ax.hlines(
         y=0.0, xmin=ci_bound_lower, xmax=ci_bound_upper, 
-        color='purple' if cover_flg else 'blue', linewidth=2.0, 
+        color='purple' if cover_flg else 'blue', linewidth=2.0, #clip_on=False, 
         label='confidence interval', 
         zorder=30
     ) # 信頼区間
@@ -614,7 +615,7 @@ def update(I):
     ax.grid()
     ax.set_xlim(xmin=x_min, xmax=x_max)   # (目盛の共通化用)
     ax2x.set_xlim(xmin=x_min, xmax=x_max) # (目盛の共通化用)
-    ax.set_ylim(ymin=-margin_ratio*Px_max, ymax=(1.0+margin_ratio)*Px_max) # 表示範囲を固定
+    ax.set_ylim(ymin=-margin_ratio*Px_max, ymax=(1.0+margin_ratio)*Px_max) # 余白を追加
     
     ##### 標本分布の作図 -----
 
@@ -622,7 +623,7 @@ def update(I):
     smp_dens_vec = norm.pdf(x=x_vec, loc=mu_smp, scale=sigma_smp)
 
     # 標本分布のラベルを作成
-    smp_param_lbl  = f'$\\bar{{x}}_i = {x_bar:.2f}, \\hat{{\\sigma}} = {sigma_hat:.2f}$\n'
+    smp_param_lbl  = f'$\\bar{{x}}_i = {x_bar:.2f}, \\hat{{\\sigma}}_i = {sigma_hat:.2f}$\n'
     smp_param_lbl += f'$\\mu = {mu_smp:.2f}, \\frac{{\\sigma}}{{\\sqrt{{N}}}} = {sigma_smp:.2f}$'
 
     # 標本分布を描画
@@ -640,20 +641,16 @@ def update(I):
         label='sample distribution', 
         zorder=10
     ) # 標本分布
-    ax.axvline(
-        x=mu_pop, 
-        color='red', linewidth=1.0, linestyle='--', 
-        zorder=20
-    ) # 母平均
-    ax.axvline(
-        x=x_bar, 
-        color='black', linewidth=1.0, linestyle='--', 
-        label='sample mean', 
-        zorder=21
-    ) # 標本平均
-    for x in [ci_bound_lower, ci_bound_upper]:
+    for idx, x in enumerate([mu_pop, x_bar]):
         ax.axvline(
             x=x, 
+            color=['red', 'black'][idx], linewidth=1.0, linestyle='--', 
+            label=[None, 'sample mean'][idx], 
+            zorder=[20, 21][idx]
+        ) # 母・標本平均
+    for mu in [ci_bound_lower, ci_bound_upper]:
+        ax.axvline(
+            x=mu, 
             color='black', linewidth=1.0, linestyle='-.', 
             zorder=22
         ) # 信頼区間の境界値
@@ -673,7 +670,7 @@ def update(I):
     ax.grid()
     ax.set_xlim(xmin=x_min, xmax=x_max)   # (目盛の共通化用)
     ax2x.set_xlim(xmin=x_min, xmax=x_max) # (目盛の共通化用)
-    ax.set_ylim(ymin=-margin_ratio*Px_bar_max, ymax=(1.0+margin_ratio)*Px_bar_max) # 表示範囲を固定
+    ax.set_ylim(ymin=-margin_ratio*Px_bar_max, ymax=(1.0+margin_ratio)*Px_bar_max) # 余白を追加
 
     # 目盛ラベルの表示を調整(ラベルが重なる対策用)
     halignments = ['right', 'center', 'left']
@@ -732,21 +729,17 @@ def update(I):
         label='tail regions', 
         zorder=11
     ) # 外側領域
-    ax.axvline(
-        x=(mu_pop - x_bar) / sigma_smp, 
-        color='red', linewidth=1.0, linestyle='--', 
-        zorder=20
-    ) # 母平均
-    ax.axvline(
-        x=0.0, 
-        color='black', linewidth=1.0, linestyle='--', 
-        zorder=21
-    ) # 標本平均
-    for z, lbl in zip([cr_bound_lower, cr_bound_upper], ['central bounds', None]):
+    for idx, z in enumerate([(mu_pop-x_bar)/sigma_smp, 0.0]):
+        ax.axvline(
+            x=z, 
+            color=['red', 'black'][idx], linewidth=1.0, linestyle='--', 
+            zorder=[20, 21][idx]
+        ) # 母・標本平均
+    for idx, z in enumerate([cr_bound_lower, cr_bound_upper]):
         ax.axvline(
             x=z, 
             color='black', linewidth=1.0, linestyle='-.', 
-            label=lbl, 
+            label='central bounds' if idx == 0 else None, 
             zorder=22
         ) # 中央領域の境界値
     ax.hlines(
@@ -766,7 +759,7 @@ def update(I):
     ax.grid()
     ax.set_xlim(xmin=z_min, xmax=z_max)   # (目盛の共通化用)
     ax2x.set_xlim(xmin=z_min, xmax=z_max) # (目盛の共通化用)
-    ax.set_ylim(ymin=-margin_ratio*Pz_max, ymax=(1.0+margin_ratio)*Pz_max) # 表示範囲を固定
+    ax.set_ylim(ymin=-margin_ratio*Pz_max, ymax=(1.0+margin_ratio)*Pz_max) # 余白を追加
 
     ##### 信頼区間の作図 -----
 
@@ -779,39 +772,34 @@ def update(I):
     res_param_lbl = f'non-coverage count: {I-cover_cnt}'
     
     # 信頼区間を描画
-    ax  = axes[3]
+    ax   = axes[3]
     ax2x = axes2x[3]
 
-    ax.axvline(
-        x=mu_pop, 
-        color='red', linewidth=2.0, 
-        label='population mean', 
-        zorder=20
-    ) # 母平均
-    ax.axvline(
-        x=x_bar, 
-        color='black', linewidth=1.0, linestyle='--', 
-        label='sample mean', 
-        zorder=21
-    ) # 標本平均
-    for x, lbl in zip([ci_bound_lower, ci_bound_upper], ['confidence bounds', None]):
+    for idx, mu in enumerate([mu_pop, x_bar]):
         ax.axvline(
-            x=x, 
+            x=mu, 
+            color=['red', 'black'][idx], linewidth=[2.0, 1.0][idx], linestyle=['-', '--'][idx], 
+            label=['population mean', 'sample mean'][idx], 
+            zorder=[20, 21][idx]
+        ) # 母・標本平均
+    for idx, mu in enumerate([ci_bound_lower, ci_bound_upper]):
+        ax.axvline(
+            x=mu, 
             color='black', linewidth=1.0, linestyle='-.', 
-            label=lbl, 
+            label='confidence bounds' if idx == 0 else None, 
             zorder=22
         ) # 信頼区間の境界値
     for i in range(I):
         # 過去の推定結果を取得
-        [tmp_ci_bound_lower, tmp_ci_bound_upper], cover_flg = res_lt[i]
+        [mu_lower, mu_upper], cover_flg = res_lt[i]
         ax.hlines(
-            y=i, xmin=tmp_ci_bound_lower, xmax=tmp_ci_bound_upper, 
+            y=i, xmin=mu_lower, xmax=mu_upper, 
             color='purple' if cover_flg else 'blue', linewidth=2.0, 
             label='confidence interval' if i+1 == I else None, 
             zorder=30
         ) # 信頼区間
     
-    ax.set_xlabel('$x$')
+    ax.set_xlabel('$\\mu$')
     ax2x.set_xticks(
         ticks =[mu_pop, ci_bound_lower, x_bar, ci_bound_upper], 
         labels=['$\\mu$', '$L_i$', '$\\bar{x}_i$', '$U_i$']
@@ -822,7 +810,7 @@ def update(I):
     ax.grid()
     ax.set_xlim(xmin=mu_min, xmax=mu_max)   # (目盛の共通化用)
     ax2x.set_xlim(xmin=mu_min, xmax=mu_max) # (目盛の共通化用)
-    ax.set_ylim(ymin=0, ymax=iter_num+1) # 表示範囲を固定
+    ax.set_ylim(ymin=0, ymax=iter_num+1)
     ax.invert_yaxis() # 推定結果を昇順に表示
 
 # 動画を作成
