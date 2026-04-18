@@ -211,7 +211,7 @@ def update(i):
     ax.grid()
     ax.set_xlim(xmin=x_min, xmax=x_max)   # (目盛の共通化用)
     ax2x.set_xlim(xmin=x_min, xmax=x_max) # (目盛の共通化用)
-    ax.set_ylim(ymin=-margin_ratio*Px_max, ymax=(1.0+margin_ratio)*Px_max) # 範囲を固定, 余白を追加
+    ax.set_ylim(ymin=-margin_ratio*Px_max, ymax=(1.0+margin_ratio)*Px_max) # 表示範囲を固定, 余白を追加
     
     # ラベルの装飾を調整(表示順の変更用)
     order = [1, 0] # 表示順を指定
@@ -293,7 +293,7 @@ def update(i):
     ax.grid()
     ax.set_xlim(xmin=p_min, xmax=p_max)   # (目盛の共通化用)
     ax2x.set_xlim(xmin=p_min, xmax=p_max) # (目盛の共通化用)
-    ax.set_ylim(ymin=-margin_ratio*Px_bar_max, ymax=(1.0+margin_ratio)*Px_bar_max) # 範囲を固定, 余白を追加
+    ax.set_ylim(ymin=-margin_ratio*Px_bar_max, ymax=(1.0+margin_ratio)*Px_bar_max) # 表示範囲を固定, 余白を追加
 
     # ラベルの装飾を調整(重なる対策用)
     halignments = ['center', 'center', 'right', 'left'] # 表示位置を指定
@@ -582,7 +582,7 @@ def update(I):
     ax.grid()
     ax.set_xlim(xmin=x_min, xmax=x_max)   # (目盛の共通化用)
     ax2x.set_xlim(xmin=x_min, xmax=x_max) # (目盛の共通化用)
-    ax.set_ylim(ymin=-margin_ratio*Px_max, ymax=(1.0+margin_ratio)*Px_max) # 範囲を固定, 余白を追加
+    ax.set_ylim(ymin=-margin_ratio*Px_max, ymax=(1.0+margin_ratio)*Px_max) # 表示範囲を固定, 余白を追加
     
     # ラベルの装飾を調整(表示順の変更用)
     order = [1, 0] # 表示順を指定
@@ -664,7 +664,7 @@ def update(I):
     ax.grid()
     ax.set_xlim(xmin=p_min, xmax=p_max)   # (目盛の共通化用)
     ax2x.set_xlim(xmin=p_min, xmax=p_max) # (目盛の共通化用)
-    ax.set_ylim(ymin=-margin_ratio*Px_bar_max, ymax=(1.0+margin_ratio)*Px_bar_max) # 範囲を固定, 余白を追加
+    ax.set_ylim(ymin=-margin_ratio*Px_bar_max, ymax=(1.0+margin_ratio)*Px_bar_max) # 表示範囲を固定, 余白を追加
 
     # ラベルの装飾を調整(重なる対策用)
     halignments = ['center', 'center', 'right', 'left'] # 表示位置を指定
@@ -766,7 +766,7 @@ def update(I):
     ax.set_ylim(ymin=-margin_ratio*Pz_max, ymax=(1.0+margin_ratio)*Pz_max) # 余白を追加
 
     # ラベルの装飾を調整(表示順の変更用)
-    order = [1, 2, 0] # 表示順を指定
+    order = [2, 0, 1] # 表示順を指定
     handles, labels = ax.get_legend_handles_labels() # 凡例情報を取得
     ax.legend(
         handles=[handles[i] for i in order], 
@@ -815,7 +815,7 @@ def update(I):
     
     ax.set_xlabel('$p$')
     ax2x.set_xticks(
-        ticks =[p_pop, p_hat, ci_bound_lower, ci_bound_upper], 
+        ticks =[p_pop, p_hat+1e-10, ci_bound_lower, ci_bound_upper], 
         labels=['$p_{pop}$', '$\\hat{p}_i$', '$L_i$', '$U_i$']
     ) # 信頼区間のラベル
     ax.set_ylabel('iteration')
