@@ -232,7 +232,7 @@ def update(i):
     # 標本平均の差を計算
     d_obs = np.subtract(*x_bar_lt)
 
-    # 標本を標準化
+    # 標本統計量を標準化
     t_obs = (d_obs - mu_smp) / sigma_smp
 
     # 中央領域の範囲を計算
@@ -280,7 +280,7 @@ def update(i):
         ) # 標本
         ax.scatter(
             x=x_lt[pop_idx][:n], y=np.zeros(n), 
-            facecolor='none', edgecolor=cmap(pop_idx), s=50, #clip_on=False, 
+            facecolor='none', edgecolor=cmap(pop_idx), s=25, #clip_on=False, 
             zorder=9
         ) # 標本
     for pop_idx in range(2):
@@ -346,8 +346,8 @@ def update(i):
     smp_param_lbl += 'd_{obs} = '+f'{d_obs:.2f}$\n'
     smp_param_lbl += '$\\mu_{smp} = \\mu_1 - \\mu_2 = '+f'{mu_smp:.2f}, '
     smp_param_lbl += '\\sigma_{smp} \\approx \\sqrt{\\frac{\\hat{\\sigma}_1}{N_1} + \\frac{\\hat{\\sigma}_2}{N_2}} = '+f'{sigma_smp:.2f}$\n'
-    smp_param_lbl += '$L = d_{obs} - z_{\\frac{\\alpha}{2}} \\sigma_{smp} = '+f'{ci_bound_lower:.2f}, '
-    smp_param_lbl += 'U = d_{obs} + z_{\\frac{\\alpha}{2}} \\sigma_{smp} = '+f'{ci_bound_upper:.2f}$'
+    smp_param_lbl += '$L = d_{obs} - t_{\\frac{\\alpha}{2}} \\sigma_{smp} = '+f'{ci_bound_lower:.2f}, '
+    smp_param_lbl += 'U = d_{obs} + t_{\\frac{\\alpha}{2}} \\sigma_{smp} = '+f'{ci_bound_upper:.2f}$'
 
     # 標本分布を描画
     ax   = axes[1]
@@ -361,14 +361,14 @@ def update(i):
     ax.plot(
         d_vec, smp_dens_vec, 
         color='black', linewidth=1.0, 
-        label='sample distribution', 
+        label='sampling distribution', 
         zorder=10
     ) # 標本分布
     for idx, delta in enumerate([delta_pop, 0.0, d_obs]):
         ax.axvline(
             x=delta, 
             color=['red', 'red', 'black'][idx], linewidth=1.0, linestyle='--', 
-            label=['population mean difference', None, 'saple mean difference'][idx], 
+            label=['population mean difference', None, 'sample mean difference'][idx], 
             zorder=[20, 20, 21][idx]
         ) # 母・標本平均の差
     for idx, delta in enumerate([ci_bound_lower, ci_bound_upper]):
@@ -391,8 +391,8 @@ def update(i):
         labels=[
             '$\\delta_{pop}$', 
             '$d_{obs}$', 
-            '$d_{obs} - z_{\\frac{\\alpha}{2}} \\sigma_{smp}$', 
-            '$d_{obs} + z_{\\frac{\\alpha}{2}} \\sigma_{smp}$'
+            '$d_{obs} - t_{\\frac{\\alpha}{2}} \\sigma_{smp}$', 
+            '$d_{obs} + t_{\\frac{\\alpha}{2}} \\sigma_{smp}$'
         ]
     ) # 信頼区間のラベル
     ax.set_ylabel('$N(d \\mid \\mu_{smp}, \\sigma_{smp}^2)$')
@@ -454,7 +454,7 @@ def update(i):
     ax.plot(
         t_vec, std_dens_vec, 
         color='black', linewidth=1.0, 
-        label='standard distribution', 
+        label='standardized statistic distribution', 
         zorder=10
     ) # 標準化分布
     for idx, d in enumerate([delta_pop, d_obs]):
@@ -633,7 +633,7 @@ def update(I):
     # 標本平均の差を計算
     d_obs = np.subtract(*x_bar_lt)
 
-    # 標本を標準化
+    # 標本統計量を標準化
     t_obs = (d_obs - mu_smp) / sigma_smp
 
     # 信頼区間の範囲を計算
@@ -658,13 +658,13 @@ def update(I):
     pop_param_lbl += f'$N_1 = {N_lt[0]}, '
     pop_param_lbl += '\\mu_1 = '+f'{mu_pop_lt[0]:.2f}, '
     pop_param_lbl += '\\sigma_1 = '+f'{sigma_pop_lt[0]:.2f}, '
-    pop_param_lbl += '\\bar{x}_1 = '+f'{x_bar_lt[0]:.2f}, '
-    pop_param_lbl += '\\hat{\\sigma}_1 = '+f'{sigma_hat_lt[0]:.2f}$\n'
+    pop_param_lbl += '\\bar{x}_{i,1} = '+f'{x_bar_lt[0]:.2f}, '
+    pop_param_lbl += '\\hat{\\sigma}_{i,1} = '+f'{sigma_hat_lt[0]:.2f}$\n'
     pop_param_lbl += f'$N_2 = {N_lt[1]}, '
     pop_param_lbl += '\\mu_2 = '+f'{mu_pop_lt[1]:.2f}, '
     pop_param_lbl += '\\sigma_2 = '+f'{sigma_pop_lt[1]:.2f}, '
-    pop_param_lbl += '\\bar{x}_2 = '+f'{x_bar_lt[1]:.2f}, '
-    pop_param_lbl += '\\hat{\\sigma}_2 = '+f'{sigma_hat_lt[1]:.2f}$'
+    pop_param_lbl += '\\bar{x}_{i,2} = '+f'{x_bar_lt[1]:.2f}, '
+    pop_param_lbl += '\\hat{\\sigma}_{i,2} = '+f'{sigma_hat_lt[1]:.2f}$'
 
     # 母分布を描画
     ax   = axes[0]
@@ -681,7 +681,7 @@ def update(I):
         ) # 標本
         ax.scatter(
             x=x_lt[pop_idx][:n], y=np.zeros(n), 
-            facecolor='none', edgecolor=cmap(pop_idx), s=50, #clip_on=False, 
+            facecolor='none', edgecolor=cmap(pop_idx), s=25, #clip_on=False, 
             zorder=9
         ) # 標本
     for pop_idx in range(2):
@@ -714,7 +714,7 @@ def update(I):
     ax.set_xlabel('$x$')
     ax2x.set_xticks(
         ticks =mu_pop_lt+x_bar_lt+[ci_bound_lower+mu_pop_lt[1], ci_bound_upper+mu_pop_lt[1]], 
-        labels=['$\\mu_1$', '$\\mu_2$', '$\\bar{x}_1$', '$\\bar{x}_2$', '$L_i + \\mu_2$', '$U_i + \\mu_2$']
+        labels=['$\\mu_1$', '$\\mu_2$', '$\\bar{x}_{i,1}$', '$\\bar{x}_{i,2}$', '$L_i + \\mu_2$', '$U_i + \\mu_2$']
     ) # 信頼区間のラベル
     ax.set_ylabel('$N(x \\mid \\mu_{pop}, \\sigma_{pop}^2)$')
     ax.set_title(pop_param_lbl, loc='left')
@@ -739,9 +739,9 @@ def update(I):
     smp_param_lbl  = '$\\delta_{pop} = '+f'{delta_pop:.2f}, '
     smp_param_lbl += 'd_i = '+f'{d_obs:.2f}$\n'
     smp_param_lbl += '$\\mu_{smp} = \\mu_1 - \\mu_2 = '+f'{mu_smp:.2f}, '
-    smp_param_lbl += '\\sigma_{smp} \\approx \\sqrt{\\frac{\\hat{\\sigma}_1}{N_1} + \\frac{\\hat{\\sigma}_2}{N_2}} = '+f'{sigma_smp:.2f}$\n'
-    smp_param_lbl += '$L_i = d_i - z_{\\frac{\\alpha}{2}} \\sigma_{smp} = '+f'{ci_bound_lower:.2f}, '
-    smp_param_lbl += 'U_i = d_i + z_{\\frac{\\alpha}{2}} \\sigma_{smp} = '+f'{ci_bound_upper:.2f}$'
+    smp_param_lbl += '\\sigma_{smp} \\approx \\sqrt{\\frac{\\hat{\\sigma}_{i,1}}{N_1} + \\frac{\\hat{\\sigma}_{i,2}}{N_2}} = '+f'{sigma_smp:.2f}$\n'
+    smp_param_lbl += '$L_i = d_i - t_{\\frac{\\alpha}{2}} \\sigma_{smp} = '+f'{ci_bound_lower:.2f}, '
+    smp_param_lbl += 'U_i = d_i + t_{\\frac{\\alpha}{2}} \\sigma_{smp} = '+f'{ci_bound_upper:.2f}$'
 
     # 標本分布を描画
     ax   = axes[1]
@@ -755,14 +755,14 @@ def update(I):
     ax.plot(
         d_vec, smp_dens_vec, 
         color='black', linewidth=1.0, 
-        label='sample distribution', 
+        label='sampling distribution', 
         zorder=10
     ) # 標本分布
     for idx, delta in enumerate([delta_pop, 0.0, d_obs]):
         ax.axvline(
             x=delta, 
             color=['red', 'red', 'black'][idx], linewidth=1.0, linestyle='--', 
-            label=['population mean difference', None, 'saple mean difference'][idx], 
+            label=['population mean difference', None, 'sample mean difference'][idx], 
             zorder=[20, 20, 21][idx]
         ) # 母・標本平均の差
     for idx, delta in enumerate([ci_bound_lower, ci_bound_upper]):
@@ -785,8 +785,8 @@ def update(I):
         labels=[
             '$\\delta_{pop}$', 
             '$d_i$', 
-            '$d_i - z_{\\frac{\\alpha}{2}} \\sigma_{smp}$', 
-            '$d_i + z_{\\frac{\\alpha}{2}} \\sigma_{smp}$'
+            '$d_i - t_{\\frac{\\alpha}{2}} \\sigma_{smp}$', 
+            '$d_i + t_{\\frac{\\alpha}{2}} \\sigma_{smp}$'
         ]
     ) # 信頼区間のラベル
     ax.set_ylabel('$N(d \\mid \\mu_{smp}, \\sigma_{smp}^2)$')
@@ -852,7 +852,7 @@ def update(I):
     ax.plot(
         t_vec, std_dens_vec, 
         color='black', linewidth=1.0, 
-        label='standard distribution', 
+        label='standardized statistic distribution', 
         zorder=10
     ) # 標準化分布
     for idx, delta in enumerate([delta_pop, d_obs]):

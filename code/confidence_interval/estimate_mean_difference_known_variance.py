@@ -6,6 +6,7 @@
 # 正規分布
 # 母平均の差の信頼区間
 # 母分散が既知の場合
+# 2標本に対応がない場合
 
 
 # %%
@@ -236,11 +237,11 @@ def update(i):
     # 標本平均の差を計算
     d_obs = np.subtract(*x_bar_lt)
 
-    # 標本を標準化
+    # 標本統計量を標準化
     z_obs = (d_obs - mu_smp) / sigma_smp
 
     # 信頼区間の範囲を計算
-    ci_bound_lower = d_obs - cr_bound_upper * sigma_smp
+    ci_bound_lower = d_obs + cr_bound_lower * sigma_smp
     ci_bound_upper = d_obs + cr_bound_upper * sigma_smp
 
     ##### 母分布の作図 -----
@@ -280,7 +281,7 @@ def update(i):
         ) # 標本
         ax.scatter(
             x=x_lt[pop_idx][:n], y=np.zeros(n), 
-            facecolor='none', edgecolor=cmap(pop_idx), s=50, #clip_on=False, 
+            facecolor='none', edgecolor=cmap(pop_idx), s=25, #clip_on=False, 
             zorder=9
         ) # 標本
     for pop_idx in range(2):
@@ -361,14 +362,14 @@ def update(i):
     ax.plot(
         d_vec, smp_dens_vec, 
         color='black', linewidth=1.0, 
-        label='sample distribution', 
+        label='sampling distribution', 
         zorder=10
     ) # 標本分布
     for idx, delta in enumerate([delta_pop, 0.0, d_obs]):
         ax.axvline(
             x=delta, 
             color=['red', 'red', 'black'][idx], linewidth=1.0, linestyle='--', 
-            label=['population mean difference', None, 'saple mean difference'][idx], 
+            label=['population mean difference', None, 'sample mean difference'][idx], 
             zorder=[20, 20, 21][idx]
         ) # 母・標本平均の差
     for idx, delta in enumerate([ci_bound_lower, ci_bound_upper]):
@@ -444,11 +445,11 @@ def update(i):
     ax.plot(
         z_vec, std_dens_vec, 
         color='black', linewidth=1.0, 
-        label='standard distribution', 
+        label='standardized statistic distribution', 
         zorder=10
     ) # 標準化分布
-    for idx, d in enumerate([delta_pop, d_obs]):
-        z = (d - mu_smp) / sigma_smp # 標準化
+    for idx, delta in enumerate([delta_pop, d_obs]):
+        z = (delta - mu_smp) / sigma_smp # 標準化
         ax.axvline(
             x=z, 
             color=['red', 'black'][idx], linewidth=1.0, linestyle='--', 
@@ -478,6 +479,7 @@ def update(i):
     ax.grid()
     ax.set_xlim(xmin=z_min, xmax=z_max)   # (目盛の共通化用)
     ax2x.set_xlim(xmin=z_min, xmax=z_max) # (目盛の共通化用)
+    ax.set_ylim(ymin=-margin_ratio*Pz_max, ymax=(1.0+margin_ratio)*Pz_max) # 余白を追加
 
     # ラベルの装飾を調整(表示順の変更用)
     order = [1, 2, 0] # 表示順を指定
@@ -530,7 +532,7 @@ Pd_max = norm.pdf(
     x    =delta_pop, 
     loc  =delta_pop, 
     scale=np.sqrt(np.sum([sgm2 / n for sgm2, n in zip(sigma2_pop_lt, N_lt)]))
-    ) # 最終試行の最頻値
+    ) # 最頻値
 Pd_max = np.ceil(Pd_max /u)*u # u単位で切り上げ
 print('p(d) size:', Pd_max)
 
@@ -612,11 +614,11 @@ def update(I):
     # 標本平均の差を計算
     d_obs = np.subtract(*x_bar_lt)
 
-    # 標本を標準化
+    # 標本統計量を標準化
     z_obs = (d_obs - mu_smp) / sigma_smp
 
     # 信頼区間の範囲を計算
-    ci_bound_lower = d_obs - cr_bound_upper * sigma_smp
+    ci_bound_lower = d_obs + cr_bound_lower * sigma_smp
     ci_bound_upper = d_obs + cr_bound_upper * sigma_smp
 
     # 被覆を判定
@@ -637,13 +639,13 @@ def update(I):
     pop_param_lbl += f'$N_1 = {N_lt[0]}, '
     pop_param_lbl += '\\mu_1 = '+f'{mu_pop_lt[0]:.2f}, '
     pop_param_lbl += '\\sigma_1 = '+f'{sigma_pop_lt[0]:.2f}, '
-    pop_param_lbl += '\\bar{x}_1 = '+f'{x_bar_lt[0]:.2f}, '
-    pop_param_lbl += '\\hat{\\sigma}_1 = '+f'{sigma_hat_lt[0]:.2f}$\n'
+    pop_param_lbl += '\\bar{x}_{i,1} = '+f'{x_bar_lt[0]:.2f}, '
+    pop_param_lbl += '\\hat{\\sigma}_{i,1} = '+f'{sigma_hat_lt[0]:.2f}$\n'
     pop_param_lbl += f'$N_2 = {N_lt[1]}, '
     pop_param_lbl += '\\mu_2 = '+f'{mu_pop_lt[1]:.2f}, '
     pop_param_lbl += '\\sigma_2 = '+f'{sigma_pop_lt[1]:.2f}, '
-    pop_param_lbl += '\\bar{x}_2 = '+f'{x_bar_lt[1]:.2f}, '
-    pop_param_lbl += '\\hat{\\sigma}_2 = '+f'{sigma_hat_lt[1]:.2f}$'
+    pop_param_lbl += '\\bar{x}_{i,2} = '+f'{x_bar_lt[1]:.2f}, '
+    pop_param_lbl += '\\hat{\\sigma}_{i,2} = '+f'{sigma_hat_lt[1]:.2f}$'
 
     # 母分布を描画
     ax   = axes[0]
@@ -660,7 +662,7 @@ def update(I):
         ) # 標本
         ax.scatter(
             x=x_lt[pop_idx][:n], y=np.zeros(n), 
-            facecolor='none', edgecolor=cmap(pop_idx), s=50, #clip_on=False, 
+            facecolor='none', edgecolor=cmap(pop_idx), s=25, #clip_on=False, 
             zorder=9
         ) # 標本
     for pop_idx in range(2):
@@ -693,7 +695,7 @@ def update(I):
     ax.set_xlabel('$x$')
     ax2x.set_xticks(
         ticks =mu_pop_lt+x_bar_lt+[ci_bound_lower+mu_pop_lt[1], ci_bound_upper+mu_pop_lt[1]], 
-        labels=['$\\mu_1$', '$\\mu_2$', '$\\bar{x}_1$', '$\\bar{x}_2$', '$L_i + \\mu_2$', '$U_i + \\mu_2$']
+        labels=['$\\mu_1$', '$\\mu_2$', '$\\bar{x}_{i,1}$', '$\\bar{x}_{i,2}$', '$L_i + \\mu_2$', '$U_i + \\mu_2$']
     ) # 信頼区間のラベル
     ax.set_ylabel('$N(x \\mid \\mu_{pop}, \\sigma_{pop}^2)$')
     ax.set_title(pop_param_lbl, loc='left')
@@ -734,14 +736,14 @@ def update(I):
     ax.plot(
         d_vec, smp_dens_vec, 
         color='black', linewidth=1.0, 
-        label='sample distribution', 
+        label='sampling distribution', 
         zorder=10
     ) # 標本分布
     for idx, delta in enumerate([delta_pop, 0.0, d_obs]):
         ax.axvline(
             x=delta, 
             color=['red', 'red', 'black'][idx], linewidth=1.0, linestyle='--', 
-            label=['population mean difference', None, 'saple mean difference'][idx], 
+            label=['population mean difference', None, 'sample mean difference'][idx], 
             zorder=[20, 20, 21][idx]
         ) # 母・標本平均の差
     for idx, delta in enumerate([ci_bound_lower, ci_bound_upper]):
@@ -831,7 +833,7 @@ def update(I):
     ax.plot(
         z_vec, std_dens_vec, 
         color='black', linewidth=1.0, 
-        label='standard distribution', 
+        label='standardized statistic distribution', 
         zorder=10
     ) # 標準化分布
     for idx, delta in enumerate([delta_pop, d_obs]):
@@ -922,7 +924,7 @@ def update(I):
     ) # 信頼区間のラベル
     ax.set_ylabel('iteration')
     ax.set_title(ci_res_lbl, loc='left')
-    ax.legend(loc='upper right', prop={'size': 8})
+    ax.legend(loc='upper left', prop={'size': 8})
     ax.grid()
     ax.set_xlim(xmin=d_min, xmax=d_max)   # (目盛の共通化用)
     ax2x.set_xlim(xmin=d_min, xmax=d_max) # (目盛の共通化用)

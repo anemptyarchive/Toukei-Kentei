@@ -184,7 +184,7 @@ print('p(x) size:', Px_max)
 # 標準化分布のp軸の範囲を設定
 k = 0.5
 u = 0.05
-Pchi_max  = chi2.pdf(x=0, df=2) # 最頻値の確率密度
+Pchi_max  = chi2.pdf(x=0, df=2) # 初回試行の最頻値
 Pchi_max *= k # 定数倍
 Pchi_max  = np.ceil(Pchi_max /u)*u # u単位で切り上げ
 print('p(χ) size:', Pchi_max)
@@ -229,6 +229,9 @@ def update(i):
     sigma2_hat = np.var(x_n[:n], ddof=1) if n > 1 else np.nan
     sigma_hat  = np.sqrt(sigma2_hat)
 
+    # 標本統計量をスケール変換
+    chi2_obs = (n-1) * sigma2_hat / sigma2_pop
+
     # 中央領域の範囲を計算
     cr_bound_lower = chi2.ppf(q=0.5*alpha, df=n-1)
     cr_bound_upper = chi2.ppf(q=1.0-0.5*alpha, df=n-1)
@@ -246,8 +249,10 @@ def update(i):
 
     # 母集団のラベルを作成
     pop_param_lbl  = f'$N = {n}$\n'
-    pop_param_lbl += f'$\\mu_{{pop}} = {mu_pop:.2f}, \\sigma_{{pop}} = {sigma_pop:.2f}$\n'
-    pop_param_lbl += f'$\\bar{{x}} = {x_bar:.2f}, \\hat{{\\sigma}} = {sigma_hat:.2f}$'
+    pop_param_lbl += '$\\mu_{pop} = '+f'{mu_pop:.2f}, '
+    pop_param_lbl += '\\sigma_{pop} = '+f'{sigma_pop:.2f}$\n'
+    pop_param_lbl += '$\\bar{x} = '+f'{x_bar:.2f}, '
+    pop_param_lbl += '\\hat{\\sigma}_{obs} = '+f'{sigma_hat:.2f}$'
 
     # 母分布を描画
     ax   = axes[0, 0]
@@ -262,8 +267,8 @@ def update(i):
         zorder=8
     ) # 標本
     ax.scatter(
-        x=x_n[:n], y=np.tile(0.0, reps=n), 
-        color='black', alpha=0.33, s=50, #clip_on=False, 
+        x=x_n[:n], y=np.zeros(n), 
+        color='black', alpha=0.33, s=25, #clip_on=False, 
         zorder=9
     ) # 標本
     ax.plot(
@@ -295,7 +300,7 @@ def update(i):
     ax.set_xlabel('$x$')
     ax2x.set_xticks(
         ticks =[mu_pop, mu_pop+sigma_pop, x_bar, x_bar+sigma_hat], 
-        labels=['$\\mu_{pop}$', '$\\mu_{pop} + \\sigma_{pop}$', '$\\bar{x}$', '$\\bar{x} + \\hat{\\sigma}$']
+        labels=['$\\mu_{pop}$', '$\\mu_{pop} + \\sigma_{pop}$', '$\\bar{x}$', '$\\bar{x} + \\hat{\\sigma}_{obs}$']
     ) # パラメータのラベル
     ax.set_ylabel('$N(x \\mid \\mu_{pop}, \\sigma_{pop}^2)$')
     ax2y.set_ylabel('$\\frac{N_x}{N}$')
@@ -319,7 +324,7 @@ def update(i):
         'center', 
         'center' if mu_pop+sigma_pop >= x_bar+sigma_hat else 'left'
     ] # 標準位置を指定
-    rotations   = [0, 30, 0, 30]
+    rotations   = [0, 30, 0, 30] # 表示角度を指定
     labels      = ax2x.get_xticklabels() # 軸情報を取得
     for label, ha, r in zip(labels, halignments, rotations):
         label.set_ha(ha)
@@ -328,15 +333,21 @@ def update(i):
     ##### σ to σ2の作図 -----
 
     # 信頼区間のラベルを作成
-    ci_param_lbl  = f'$\\sigma_{{pop}}^2 = {sigma2_pop:.2f}, \\hat{{\\sigma}}^2 = {sigma2_hat:.2f}$\n'
-    ci_param_lbl += '$L = \\frac{(N-1) \\hat{\\sigma}^2}{\\chi^2_{\\frac{\\alpha}{2}}} = '+f'{ci_bound_lower:.2f}, '
-    ci_param_lbl += 'U = \\frac{(N-1) \\hat{\\sigma}^2}{\\chi^2_{1-\\frac{\\alpha}{2}}} = '+f'{ci_bound_upper:.2f}$'
+    adapt_param_lbl  = '$\\sigma_{pop}^2 = '+f'{sigma2_pop:.2f}, '
+    adapt_param_lbl += '\\hat{\\sigma}_{obs}^2 = '+f'{sigma2_hat:.2f}$\n'
+    adapt_param_lbl += '$L = \\frac{(N-1) \\hat{\\sigma}_{obs}^2}{\\chi^2_{\\frac{\\alpha}{2}}} = '+f'{ci_bound_lower:.2f}, '
+    adapt_param_lbl += 'U = \\frac{(N-1) \\hat{\\sigma}_{obs}^2}{\\chi^2_{1-\\frac{\\alpha}{2}}} = '+f'{ci_bound_upper:.2f}$'
 
     # 標準偏差と分散の関係を描画
     ax   = axes[1, 0]
     ax2x = axes2x[1]
     ax2y = axes2y[1]
 
+    ax.scatter(
+        x=np.sqrt(sigma2_hat), y=sigma2_hat, 
+        color='#00A968', s=100, 
+        zorder=9
+    ) # 不偏分散
     ax.plot(
         sigma_vec, sigma_vec**2, 
         color='black', linewidth=1.0, 
@@ -377,14 +388,15 @@ def update(i):
     ax.set_xlabel('$\\sigma$')
     ax2x.set_xticks(
         ticks =[sigma_pop, sigma_hat, np.sqrt(ci_bound_lower), np.sqrt(ci_bound_upper)], 
-        labels=['$\\sigma_{pop}$', '$\\hat{\\sigma}$', '$\\sqrt{L}$', '$\\sqrt{U}$']
+        labels=['$\\sigma_{pop}$', '$\\hat{\\sigma}_{obs}$', '$\\sqrt{L}$', '$\\sqrt{U}$'], 
+        rotation=60
     ) # パラメータのラベル
     ax.set_ylabel('$\\sigma^2$')
     ax2y.set_yticks(
         ticks =[sigma2_pop, sigma2_hat, ci_bound_lower, ci_bound_upper], 
-        labels=['$\\sigma_{pop}^2$', '$\\hat{\\sigma}^2$', '$L$', '$U$']
+        labels=['$\\sigma_{pop}^2$', '$\\hat{\\sigma}_{obs}^2$', '$L$', '$U$']
     ) # パラメータのラベル
-    ax.set_title(ci_param_lbl, loc='left')
+    ax.set_title(adapt_param_lbl, loc='left')
     ax.legend(loc='upper left', prop={'size': 8})
     ax.grid()
     ax.set_xlim(xmin=sigma_min, xmax=sigma_max)   # (目盛の共通化用)
@@ -410,7 +422,7 @@ def update(i):
         zorder=11
     ) # 変換曲線
     for idx, sgm2 in enumerate([sigma2_pop, sigma2_hat]):
-        chi2_val = (n-1) * sgm2 / sigma2_pop # 標準化
+        chi2_val = (n-1) * sgm2 / sigma2_pop # スケール変換
         ax.hlines(
             y=sgm2, xmin=chi2_min, xmax=chi2_val, 
             color=['red', 'black'][idx], linewidth=1.0, linestyle='--', 
@@ -420,7 +432,7 @@ def update(i):
             x=chi2_val, ymin=sigma2_min, ymax=sgm2, 
             color=['red', 'black'][idx], linewidth=1.0, linestyle='--', 
             zorder=[20, 21][idx]
-        ) # 母・標本標準化変数
+        ) # 標準化変数
     for idx, chi2_val in enumerate([cr_bound_lower, cr_bound_upper]):
         sgm2 = (n-1) * sigma2_hat / chi2_val # 逆変換
         ax.hlines(
@@ -455,7 +467,8 @@ def update(i):
     cr_dens_vec = chi2.pdf(x=cr_chi2_vec, df=n-1)
 
     # 標準化分布のラベルを作成
-    std_param_lbl  = f'$\\alpha = {alpha:.2f}, '
+    std_param_lbl  = '$\\chi^2_{obs} = '+f'{chi2_obs:.2f}$\n'
+    std_param_lbl += f'$\\alpha = {alpha:.2f}, '
     std_param_lbl += '\\chi^2_{1-\\frac{\\alpha}{2}} = '+f'{cr_bound_lower:.2f}, '
     std_param_lbl += '\\chi^2_{\\frac{\\alpha}{2}} = '+f'{cr_bound_upper:.2f}$'
 
@@ -472,11 +485,11 @@ def update(i):
     ax.plot(
         chi2_vec, std_dens_vec, 
         color='black', linewidth=1.0, 
-        label='standard distribution', 
+        label='scale-transformed\nstatistic distribution', 
         zorder=10
     ) # 標準化分布
     for idx, sgm2 in enumerate([sigma2_pop, sigma2_hat]):
-        chi2_val = (n-1) * sgm2 / sigma2_pop # 標準化
+        chi2_val = (n-1) * sgm2 / sigma2_pop # スケール変換
         ax.axvline(
             x=chi2_val, 
             color=['red', 'black'][idx], linewidth=1.0, linestyle='--', 
@@ -497,8 +510,8 @@ def update(i):
 
     ax.set_xlabel('$\\chi^2 = \\frac{(n-1) \\hat{\\sigma}^2}{\\sigma_{pop}^2}$')
     ax2x.set_xticks(
-        ticks =[cr_bound_lower, cr_bound_upper], 
-        labels=['$\\chi^2_{1-\\frac{\\alpha}{2}}$', '$\\chi^2_{\\frac{\\alpha}{2}}$']
+        ticks =[chi2_obs, cr_bound_lower, cr_bound_upper], 
+        labels=['$\\chi^2_{obs}$', '$\\chi^2_{1-\\frac{\\alpha}{2}}$', '$\\chi^2_{\\frac{\\alpha}{2}}$']
     ) # 中央領域のラベル
     ax.set_ylabel('$chi2(\\chi^2 \\mid n-1)$')
     ax.set_title(std_param_lbl, loc='left')
@@ -606,7 +619,7 @@ print('p(x) size:', Px_max)
 
 # 標準化分布のp軸の範囲を設定
 u = 0.005
-Pchi_max = chi2.pdf(x=np.max([0, N-1-2]), df=N-1) # 最頻値の確率密度
+Pchi_max = chi2.pdf(x=np.max([0, N-1-2]), df=N-1) # 最頻値
 Pchi_max = np.ceil(Pchi_max /u)*u # u単位で切り上げ
 print('p(χ) size:', Pchi_max)
 
@@ -673,6 +686,9 @@ def update(I):
     sigma2_hat = np.var(x_n, ddof=1)
     sigma_hat  = np.sqrt(sigma2_hat)
 
+    # 標本統計量をスケール変換
+    chi2_obs = (N-1) * sigma2_hat / sigma2_pop
+
     # 信頼区間の範囲を計算
     ci_bound_lower = (N-1) * sigma2_hat / cr_bound_upper
     ci_bound_upper = (N-1) * sigma2_hat / cr_bound_lower
@@ -690,8 +706,10 @@ def update(I):
 
     # 母集団のラベルを作成
     pop_param_lbl  = f'$i = {I}, N = {N}$\n'
-    pop_param_lbl += f'$\\mu_{{pop}} = {mu_pop:.2f}, \\sigma_{{pop}} = {sigma_pop:.2f}$\n'
-    pop_param_lbl += f'$\\bar{{x}}_i = {x_bar:.2f}, \\hat{{\\sigma}}_i = {sigma_hat:.2f}$'
+    pop_param_lbl += '$\\mu_{pop} = '+f'{mu_pop:.2f}, '
+    pop_param_lbl += '\\sigma_{pop} = '+f'{sigma_pop:.2f}$\n'
+    pop_param_lbl += '$\\bar{x}_i = '+f'{x_bar:.2f}, '
+    pop_param_lbl += '\\hat{\\sigma}_i = '+f'{sigma_hat:.2f}$'
 
     # 母分布を描画
     ax   = axes[0]
@@ -705,8 +723,8 @@ def update(I):
         zorder=8
     ) # 標本
     ax.scatter(
-        x=x_n, y=np.tile(0.0, reps=N), 
-        color='black', alpha=0.33, s=50, #clip_on=False, 
+        x=x_n, y=np.zeros(N), 
+        color='black', alpha=0.33, s=25, #clip_on=False, 
         zorder=9
     ) # 標本
     ax.plot(
@@ -755,7 +773,7 @@ def update(I):
         'center', 
         'center' if mu_pop+sigma_pop >= x_bar+sigma_hat else 'left'
     ] # 標準位置を指定
-    rotations   = [0, 30, 0, 30]
+    rotations   = [0, 30, 0, 30] # 表示角度を指定
     labels      = ax2x.get_xticklabels() # 軸情報を取得
     for label, ha, r in zip(labels, halignments, rotations):
         label.set_ha(ha)
@@ -764,15 +782,21 @@ def update(I):
     ##### σ to σ2の作図 -----
 
     # 信頼区間のラベルを作成
-    ci_param_lbl  = f'$\\sigma_{{pop}}^2 = {sigma2_pop:.2f}, \\hat{{\\sigma}}^2 = {sigma2_hat:.2f}$\n'
-    ci_param_lbl += '$L = \\frac{(N-1) \\hat{\\sigma}^2}{\\chi^2_{\\frac{\\alpha}{2}}} = '+f'{ci_bound_lower:.2f}, '
-    ci_param_lbl += 'U = \\frac{(N-1) \\hat{\\sigma}^2}{\\chi^2_{1-\\frac{\\alpha}{2}}} = '+f'{ci_bound_upper:.2f}$'
+    adapt_param_lbl  = '$\\sigma_{pop}^2 = '+f'{sigma2_pop:.2f}, '
+    adapt_param_lbl += '\\hat{\\sigma}_i^2 = '+f'{sigma2_hat:.2f}$\n'
+    adapt_param_lbl += '$L = \\frac{(N-1) \\hat{\\sigma}_i^2}{\\chi^2_{\\frac{\\alpha}{2}}} = '+f'{ci_bound_lower:.2f}, '
+    adapt_param_lbl += 'U = \\frac{(N-1) \\hat{\\sigma}_i^2}{\\chi^2_{1-\\frac{\\alpha}{2}}} = '+f'{ci_bound_upper:.2f}$'
 
     # 標準偏差と分散の関係を描画
     ax   = axes[1]
     ax2x = axes2x[1]
     ax2y = axes2y[0]
 
+    ax.scatter(
+        x=np.sqrt(sigma2_hat), y=sigma2_hat, 
+        color='#00A968', s=100, 
+        zorder=9
+    ) # 不偏分散
     ax.plot(
         sigma_vec, sigma_vec**2, 
         color='black', linewidth=1.0, 
@@ -818,15 +842,24 @@ def update(I):
     ax.set_ylabel('$\\sigma^2$')
     ax2y.set_yticks(
         ticks =[sigma2_pop, sigma2_hat, ci_bound_lower, ci_bound_upper], 
-        labels=['$\\sigma_{pop}^2$', '$\\hat{\\sigma}_i^2$', '$L_i$', '$U_i$']
+        labels=['$\\sigma_{pop}^2$', '$\\hat{\\sigma}_i^2$', '$L_i$', '$U_i$'], 
+        rotation=60
     ) # パラメータのラベル
-    ax.set_title(ci_param_lbl, loc='left')
+    ax.set_title(adapt_param_lbl, loc='left')
     ax.legend(loc='upper left', prop={'size': 8})
     ax.grid()
     ax.set_xlim(xmin=x_min-mu_pop, xmax=x_max-mu_pop)   # (目盛の共通化用)
     ax2x.set_xlim(xmin=x_min-mu_pop, xmax=x_max-mu_pop) # (目盛の共通化用)
     ax.set_ylim(ymin=sigma2_min, ymax=sigma2_max)   # (目盛の共通化用)
     ax2y.set_ylim(ymin=sigma2_min, ymax=sigma2_max) # (目盛の共通化用)
+
+    # ラベルの装飾を調整(重なる対策用)
+    halignments = ['center', 'center', 'right', 'left'] # 標準位置を指定
+    rotations   = [60, 60, 0, 0] # 表示角度を指定
+    labels      = ax2x.get_xticklabels() # 軸情報を取得
+    for label, ha, r in zip(labels, halignments, rotations):
+        label.set_ha(ha)
+        #label.set_rotation(r)
 
     ##### σ2 to χ2の作図 -----
 
@@ -846,7 +879,7 @@ def update(I):
         zorder=11
     ) # 変換曲線
     for idx, sgm2 in enumerate([sigma2_pop, sigma2_hat]):
-        chi2_val = (N-1) * sgm2 / sigma2_pop # 標準化
+        chi2_val = (N-1) * sgm2 / sigma2_pop # スケール変換
         ax.hlines(
             y=sgm2, xmin=chi2_min, xmax=chi2_val, 
             color=['red', 'black'][idx], linewidth=1.0, linestyle='--', 
@@ -856,7 +889,7 @@ def update(I):
             x=chi2_val, ymin=sigma2_min, ymax=sgm2, 
             color=['red', 'black'][idx], linewidth=1.0, linestyle='--', 
             zorder=[20, 21][idx]
-        ) # 母・標本標準化変数
+        ) # 標準化変数
     for idx, chi2_val in enumerate([cr_bound_lower, cr_bound_upper]):
         sgm2 = (N-1) * sigma2_hat / chi2_val # 逆変換
         ax.hlines(
@@ -899,7 +932,8 @@ def update(I):
     tail_dens_vec = chi2.pdf(x=tail_chi2_vec, df=N-1)
 
     # 標準化分布のラベルを作成
-    std_param_lbl  = f'$\\alpha = {alpha:.2f}, '
+    std_param_lbl  = '$\\chi^2_i = '+f'{chi2_obs:.2f}$\n'
+    std_param_lbl += f'$\\alpha = {alpha:.2f}, '
     std_param_lbl += '\\chi^2_{1-\\frac{\\alpha}{2}} = '+f'{cr_bound_lower:.2f}, '
     std_param_lbl += '\\chi^2_{\\frac{\\alpha}{2}} = '+f'{cr_bound_upper:.2f}$'
 
@@ -922,11 +956,11 @@ def update(I):
     ax.plot(
         chi2_vec, std_dens_vec, 
         color='black', linewidth=1.0, 
-        label='standard distribution', 
+        label='scale-transformed\nstatistic distribution', 
         zorder=10
     ) # 標準化分布
     for idx, sgm2 in enumerate([sigma2_pop, sigma2_hat]):
-        chi2_val = (N-1) * sgm2 / sigma2_pop # 標準化
+        chi2_val = (N-1) * sgm2 / sigma2_pop # スケール変換
         ax.axvline(
             x=chi2_val, 
             color=['red', 'black'][idx], linewidth=1.0, linestyle='--', 
@@ -947,8 +981,8 @@ def update(I):
 
     ax.set_xlabel('$\\chi^2 = \\frac{(n-1) \\hat{\\sigma}^2}{\\sigma_{pop}^2}$')
     ax2x.set_xticks(
-        ticks =[cr_bound_lower, cr_bound_upper], 
-        labels=['$\\chi^2_{1-\\frac{\\alpha}{2}}$', '$\\chi^2_{\\frac{\\alpha}{2}}$']
+        ticks =[chi2_obs, cr_bound_lower, cr_bound_upper], 
+        labels=['$\\chi^2_i$', '$\\chi^2_{1-\\frac{\\alpha}{2}}$', '$\\chi^2_{\\frac{\\alpha}{2}}$']
     ) # 中央領域のラベル
     ax.set_ylabel('$chi2(\\chi^2 \\mid n-1)$')
     ax.set_title(std_param_lbl, loc='left')
@@ -964,7 +998,7 @@ def update(I):
     ax.legend(
         handles=[handles[i] for i in order], 
         labels =[labels[i] for i in order], 
-        loc='upper right', prop={'size': 8}
+        loc='upper left', prop={'size': 8}
     )
 
     ##### 信頼区間の作図 -----
@@ -976,7 +1010,7 @@ def update(I):
 
     # 推定結果のラベルを作成
     non_cover_cnt = I - cover_cnt
-    res_param_lbl = f'non-coverage: {non_cover_cnt} / {I} ( {non_cover_cnt/I:.3f} )'
+    ci_res_lbl    = f'non-coverage: {non_cover_cnt} / {I} ( {non_cover_cnt/I:.3f} )'
     
     # 信頼区間を描画
     ax   = axes[4]
@@ -1008,11 +1042,11 @@ def update(I):
     
     ax.set_xlabel('$\\sigma^2$')
     ax2x.set_xticks(
-        ticks =[sigma2_pop, ci_bound_lower, sigma2_hat, ci_bound_upper], 
-        labels=['$\\sigma_{pop}^2$', '$L_i$', '$\\hat{\\sigma}_i^2$', '$U_i$']
+        ticks =[sigma2_pop, sigma2_hat, ci_bound_lower, ci_bound_upper], 
+        labels=['$\\sigma_{pop}^2$', '$\\hat{\\sigma}_i^2$', '$L_i$', '$U_i$']
     ) # 信頼区間のラベル
     ax.set_ylabel('iteration')
-    ax.set_title(res_param_lbl, loc='left')
+    ax.set_title(ci_res_lbl, loc='left')
     ax.legend(loc='upper right', prop={'size': 8})
     ax.grid()
     ax.set_xlim(xmin=sigma2_min, xmax=sigma2_max)   # (目盛の共通化用)

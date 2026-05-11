@@ -80,19 +80,19 @@ max_N = 100
 
 # 母分布のp軸の範囲を設定
 u = 0.05
-Px_max = p_pop # 最頻値の確率密度
+Px_max = max(1.0-p_pop, p_pop) # 初回試行の最頻値
 Px_max = np.ceil(Px_max /u)*u # u単位で切り上げ
 print('p(x) size:    ', Px_max)
 
 # 標本分布のp軸の範囲を設定
 u = 0.01
-Px_bar_max = norm.pdf(x=p_pop, loc=p_pop, scale=np.sqrt(p_pop*(1-p_pop)/max_N)) # 最頻値の確率密度
+Px_bar_max = norm.pdf(x=p_pop, loc=p_pop, scale=np.sqrt(p_pop*(1-p_pop)/max_N)) # 最終試行の最頻値
 Px_bar_max = np.ceil(Px_bar_max /u)*u # u単位で切り上げ
 print('p(x bar) size:', Px_bar_max)
 
 # 標準化分布のp軸の範囲を設定
 u = 0.5
-Pz_max = norm.pdf(x=0.0, loc=0.0, scale=1.0) # 最頻値の確率密度
+Pz_max = norm.pdf(x=0.0, loc=0.0, scale=1.0) # 最頻値
 Pz_max = np.ceil(Pz_max /u)*u # u単位で切り上げ
 print('p(z) size:    ', Pz_max)
 
@@ -130,7 +130,7 @@ def update(i):
     ##### 乱数の生成 -----
 
     # 値を設定
-    n = i + 1 # サンプルサイズ
+    n = i + 1 # 試行回数
 
     # シードを設定(変化の安定化用):(ノートとの対応用)
     np.random.seed(10)
@@ -147,15 +147,19 @@ def update(i):
     sigma2_smp = p_pop * (1.0-p_pop) / n
     sigma_smp  = np.sqrt(sigma2_smp)
 
+    # 標本統計量を標準化
+    z_obs = (p_hat - mu_smp) / sigma_smp
+
     # 信頼区間の範囲を計算
-    ci_bound_lower = p_hat - cr_bound_upper * sigma_smp
+    ci_bound_lower = p_hat + cr_bound_lower * sigma_smp
     ci_bound_upper = p_hat + cr_bound_upper * sigma_smp
 
     ##### 母分布の作図 -----
 
     # x軸の範囲を設定
-    x_min = -1
-    x_max = n + 1
+    x_add = 1 # (整数)
+    x_min = -x_add 
+    x_max = n + x_add
 
     # x軸の値を作成
     x_vec = np.arange(start=x_min, stop=x_max+1, step=1)
@@ -164,7 +168,7 @@ def update(i):
     pop_prob_vec = binom.pmf(k=x_vec, n=n, p=p_pop)
 
     # 母分布のラベルを作成
-    pop_param_lbl = f'$N = {n}, p_{{pop}} = {p_pop:.2f}$'
+    pop_param_lbl = f'$N = {n}, '+'p_{pop} = '+f'{p_pop:.2f}$'
 
     # 母分布を描画
     ax   = axes[0]
@@ -234,12 +238,12 @@ def update(i):
     # 標本分布の確率密度を計算
     smp_dens_vec = norm.pdf(x=p_vec, loc=mu_smp, scale=sigma_smp)
 
-    # 信頼区間のラベルを作成
-    ci_param_lbl   = '$\\hat{p} = '+f'{p_hat:.2f}$\n'
-    ci_param_lbl  += '$\\mu_{smp} = p_{pop} = '+f'{mu_smp:.2f}, '
-    ci_param_lbl  += '\\sigma_{smp} = \\sqrt{\\frac{p_{pop} (1-p_{pop})}{N}} = '+f'{sigma_smp:.2f}$\n'
-    ci_param_lbl  += '$L = \\hat{p} - z_{\\frac{\\alpha}{2}} \\sigma_{smp} = '+f'{ci_bound_lower:.2f}, '
-    ci_param_lbl  += 'U = \\hat{p} + z_{\\frac{\\alpha}{2}} \\sigma_{smp} = '+f'{ci_bound_upper:.2f}$'
+    # 標本分布のラベルを作成
+    smp_param_lbl  = '$\\hat{p}_{obs} = '+f'{p_hat:.2f}$\n'
+    smp_param_lbl += '$\\mu_{smp} = p_{pop} = '+f'{mu_smp:.2f}, '
+    smp_param_lbl += '\\sigma_{smp} \\approx \\sqrt{\\frac{\\hat{p}_{obs} (1-\\hat{p}_{obs})}{N}} = '+f'{sigma_smp:.2f}$\n'
+    smp_param_lbl += '$L = \\hat{p}_{obs} - z_{\\frac{\\alpha}{2}} \\sigma_{smp} = '+f'{ci_bound_lower:.2f}, '
+    smp_param_lbl += 'U = \\hat{p}_{obs} + z_{\\frac{\\alpha}{2}} \\sigma_{smp} = '+f'{ci_bound_upper:.2f}$'
 
     # 標本分布を描画
     ax   = axes[1]
@@ -254,14 +258,14 @@ def update(i):
     ax.plot(
         p_vec, smp_dens_vec, 
         color='black', linewidth=1.0, 
-        label='sample distribution', 
+        label='sampling distribution', 
         zorder=10
     ) # 標本分布
     for idx, p in enumerate([p_pop, p_hat]):
         ax.axvline(
             x=p, 
             color=['red', 'black'][idx], linewidth=1.0, linestyle='--', 
-            label=['population proportion', 'saple proportion'][idx], 
+            label=['population proportion', 'sample proportion'][idx], 
             zorder=[20, 21][idx]
         ) # 母・標本比率
     for idx, p in enumerate([ci_bound_lower, ci_bound_upper]):
@@ -282,13 +286,14 @@ def update(i):
     ax2x.set_xticks(
         ticks =[p_pop, p_hat+1e-10, ci_bound_lower, ci_bound_upper], 
         labels=[
-            '$p_{pop}$', '$\\hat{p}$', 
-            '$\\hat{p} - z_{\\frac{\\alpha}{2}} \\sigma_{smp}$', 
-            '$\\hat{p} + z_{\\frac{\\alpha}{2}} \\sigma_{smp}$'
+            '$p_{pop}$', 
+            '$\\hat{p}_{obs}$', 
+            '$\\hat{p}_{obs} - z_{\\frac{\\alpha}{2}} \\sigma_{smp}$', 
+            '$\\hat{p}_{obs} + z_{\\frac{\\alpha}{2}} \\sigma_{smp}$'
         ]
     ) # 信頼区間のラベル
     ax.set_ylabel('$N(\\hat{p} \\mid \\mu_{smp}, \\sigma_{smp}^2)$')
-    ax.set_title(ci_param_lbl, loc='left')
+    ax.set_title(smp_param_lbl, loc='left')
     #ax.legend(loc=legend_loc, prop={'size': 8})
     ax.grid()
     ax.set_xlim(xmin=p_min, xmax=p_max)   # (目盛の共通化用)
@@ -327,7 +332,8 @@ def update(i):
     cr_dens_vec = norm.pdf(x=cr_z_vec, loc=0.0, scale=1.0)
 
     # 標本分布のラベルを作成
-    std_param_lbl  = f'$\\alpha = {alpha:.2f}, '
+    std_param_lbl  = '$z_{obs} = '+f'{z_obs:.2f}$\n'
+    std_param_lbl += f'$\\alpha = {alpha:.2f}, '
     std_param_lbl += 'z_{1-\\frac{\\alpha}{2}} = '+f'{cr_bound_lower:.2f}, '
     std_param_lbl += 'z_{\\frac{\\alpha}{2}} = '+f'{cr_bound_upper:.2f}$'
 
@@ -344,11 +350,11 @@ def update(i):
     ax.plot(
         z_vec, std_dens_vec, 
         color='black', linewidth=1.0, 
-        label='standard distribution', 
+        label='standardized statistic distribution', 
         zorder=10
     ) # 標準化分布
     for idx, p in enumerate([p_pop, p_hat]):
-        z = (p - p_hat) / sigma_smp # 標準化
+        z = (p - mu_smp) / sigma_smp # 標準化
         ax.axvline(
             x=z, 
             color=['red', 'black'][idx], linewidth=1.0, linestyle='--', 
@@ -369,8 +375,8 @@ def update(i):
 
     ax.set_xlabel('$z = \\frac{\\hat{p} - \\mu_{smp}}{\\sigma_{smp}}$')
     ax2x.set_xticks(
-        ticks =[cr_bound_lower, cr_bound_upper], 
-        labels=['$z_{1-\\frac{\\alpha}{2}}$', '$z_{\\frac{\\alpha}{2}}$']
+        ticks =[z_obs, cr_bound_lower, cr_bound_upper], 
+        labels=['$z_{obs}$', '$z_{1-\\frac{\\alpha}{2}}$', '$z_{\\frac{\\alpha}{2}}$']
     ) # 中央領域のラベル
     ax.set_ylabel('$N(z \\mid 0, 1)$')
     ax.set_title(std_param_lbl, loc='left')
@@ -422,8 +428,9 @@ N = 20
 # x軸の範囲を設定
 x_lower = 0
 x_upper = N
-x_min   = x_lower - 0.5
-x_max   = x_upper + 0.5
+x_add   = 0.5
+x_min   = x_lower - x_add
+x_max   = x_upper + x_add
 print('x-axis size:', x_min, x_max)
 
 # x軸の値を作成
@@ -450,13 +457,13 @@ print('p(x) size:    ', Px_max)
 
 # 標本分布のp軸の範囲を設定
 u = 0.01
-Px_bar_max = norm.pdf(x=p_pop, loc=p_pop, scale=np.sqrt(p_pop*(1-p_pop)/N)) # 最頻値の確率密度
+Px_bar_max = norm.pdf(x=p_pop, loc=p_pop, scale=np.sqrt(p_pop*(1-p_pop)/N)) # 最頻値
 Px_bar_max = np.ceil(Px_bar_max /u)*u # u単位で切り上げ
 print('p(x bar) size:', Px_bar_max)
 
 # 標準化分布のp軸の範囲を設定
 u = 0.5
-Pz_max = norm.pdf(x=0.0, loc=0.0, scale=1.0) # 最頻値の確率密度
+Pz_max = norm.pdf(x=0.0, loc=0.0, scale=1.0) # 最頻値
 Pz_max = np.ceil(Pz_max /u)*u # u単位で切り上げ
 print('p(z) size:    ', Pz_max)
 
@@ -523,8 +530,11 @@ def update(I):
     sigma2_smp = p_pop * (1.0-p_pop) / N
     sigma_smp  = np.sqrt(sigma2_smp)
 
+    # 標本統計量を標準化
+    z_obs = (p_hat - mu_smp) / sigma_smp
+
     # 信頼区間の範囲を計算
-    ci_bound_lower = p_hat - cr_bound_upper * sigma_smp
+    ci_bound_lower = p_hat + cr_bound_lower * sigma_smp
     ci_bound_upper = p_hat + cr_bound_upper * sigma_smp
 
     # 被覆を判定
@@ -535,7 +545,7 @@ def update(I):
 
     # 母分布のラベルを作成
     pop_param_lbl  = f'$i = {I}$\n'
-    pop_param_lbl += f'$N = {N}, p_{{pop}} = {p_pop:.2f}$'
+    pop_param_lbl += f'$N = {N}, '+'p_{pop} = '+f'{p_pop:.2f}$'
 
     # 母分布を描画
     ax   = axes[0]
@@ -605,12 +615,12 @@ def update(I):
     # 標本分布の確率密度を計算
     smp_dens_vec = norm.pdf(x=p_vec, loc=mu_smp, scale=sigma_smp)
 
-    # 信頼区間のラベルを作成
-    ci_param_lbl   = '$\\hat{p}_i = '+f'{p_hat:.2f}$\n'
-    ci_param_lbl  += '$\\mu_{smp} = p_{pop} = '+f'{mu_smp:.2f}, '
-    ci_param_lbl  += '\\sigma_{smp} = \\sqrt{\\frac{p_{pop} (1-p_{pop})}{N}} = '+f'{sigma_smp:.2f}$\n'
-    ci_param_lbl  += '$L_i = \\hat{p}_i - z_{\\frac{\\alpha}{2}} \\sigma_{smp} = '+f'{ci_bound_lower:.2f}, '
-    ci_param_lbl  += 'U_i = \\hat{p}_i + z_{\\frac{\\alpha}{2}} \\sigma_{smp} = '+f'{ci_bound_upper:.2f}$'
+    # 標本分布のラベルを作成
+    smp_param_lbl  = '$\\hat{p}_i = '+f'{p_hat:.2f}$\n'
+    smp_param_lbl += '$\\mu_{smp} = p_{pop} = '+f'{mu_smp:.2f}, '
+    smp_param_lbl += '\\sigma_{smp} \\approx \\sqrt{\\frac{\\hat{p}_i (1-\\hat{p}_i)}{N}} = '+f'{sigma_smp:.2f}$\n'
+    smp_param_lbl += '$L_i = \\hat{p}_i - z_{\\frac{\\alpha}{2}} \\sigma_{smp} = '+f'{ci_bound_lower:.2f}, '
+    smp_param_lbl += 'U_i = \\hat{p}_i + z_{\\frac{\\alpha}{2}} \\sigma_{smp} = '+f'{ci_bound_upper:.2f}$'
 
     # 標本分布を描画
     ax   = axes[1]
@@ -625,14 +635,14 @@ def update(I):
     ax.plot(
         p_vec, smp_dens_vec, 
         color='black', linewidth=1.0, 
-        label='sample distribution', 
+        label='sampling distribution', 
         zorder=10
     ) # 標本分布
     for idx, p in enumerate([p_pop, p_hat]):
         ax.axvline(
             x=p, 
             color=['red', 'black'][idx], linewidth=1.0, linestyle='--', 
-            label=['population proportion', 'saple proportion'][idx], 
+            label=['population proportion', 'sample proportion'][idx], 
             zorder=[20, 21][idx]
         ) # 母・標本比率
     for idx, p in enumerate([ci_bound_lower, ci_bound_upper]):
@@ -653,13 +663,14 @@ def update(I):
     ax2x.set_xticks(
         ticks =[p_pop, p_hat+1e-10, ci_bound_lower, ci_bound_upper], 
         labels=[
-            '$p_{pop}$', '$\\hat{p}_i$', 
+            '$p_{pop}$', 
+            '$\\hat{p}_i$', 
             '$\\hat{p}_i - z_{\\frac{\\alpha}{2}} \\sigma_{smp}$', 
             '$\\hat{p}_i + z_{\\frac{\\alpha}{2}} \\sigma_{smp}$'
         ]
     ) # 信頼区間のラベル
     ax.set_ylabel('$N(\\hat{p} \\mid \\mu_{smp}, \\sigma_{smp}^2)$')
-    ax.set_title(ci_param_lbl, loc='left')
+    ax.set_title(smp_param_lbl, loc='left')
     #ax.legend(loc=legend_loc, prop={'size': 8})
     ax.grid()
     ax.set_xlim(xmin=p_min, xmax=p_max)   # (目盛の共通化用)
@@ -706,7 +717,8 @@ def update(I):
     tail_dens_vec = norm.pdf(x=tail_z_vec, loc=0.0, scale=1.0)
 
     # 標本分布のラベルを作成
-    std_param_lbl  = f'$\\alpha = {alpha:.2f}, '
+    std_param_lbl  = '$z_i = '+f'{z_obs:.2f}$\n'
+    std_param_lbl += f'$\\alpha = {alpha:.2f}, '
     std_param_lbl += 'z_{1-\\frac{\\alpha}{2}} = '+f'{cr_bound_lower:.2f}, '
     std_param_lbl += 'z_{\\frac{\\alpha}{2}} = '+f'{cr_bound_upper:.2f}$'
 
@@ -729,7 +741,7 @@ def update(I):
     ax.plot(
         z_vec, std_dens_vec, 
         color='black', linewidth=1.0, 
-        label='standard distribution', 
+        label='standardized statistic distribution', 
         zorder=10
     ) # 標準化分布
     for idx, p in enumerate([p_pop, p_hat]):
@@ -754,8 +766,8 @@ def update(I):
 
     ax.set_xlabel('$z = \\frac{\\hat{p} - \\mu_{smp}}{\\sigma_{smp}}$')
     ax2x.set_xticks(
-        ticks =[cr_bound_lower, cr_bound_upper], 
-        labels=['$z_{1-\\frac{\\alpha}{2}}$', '$z_{\\frac{\\alpha}{2}}$']
+        ticks =[z_obs, cr_bound_lower, cr_bound_upper], 
+        labels=['$z_i$', '$z_{1-\\frac{\\alpha}{2}}$', '$z_{\\frac{\\alpha}{2}}$']
     ) # 中央領域のラベル
     ax.set_ylabel('$N(z \\mid 0, 1)$')
     ax.set_title(std_param_lbl, loc='left')
@@ -783,7 +795,7 @@ def update(I):
 
     # 推定結果のラベルを作成
     non_cover_cnt = I - cover_cnt
-    res_param_lbl = f'non-coverage: {non_cover_cnt} / {I} ( {non_cover_cnt/I:.3f} )'
+    ci_res_lbl    = f'non-coverage: {non_cover_cnt} / {I} ( {non_cover_cnt/I:.3f} )'
     
     # 信頼区間を描画
     ax   = axes[3]
@@ -819,7 +831,7 @@ def update(I):
         labels=['$p_{pop}$', '$\\hat{p}_i$', '$L_i$', '$U_i$']
     ) # 信頼区間のラベル
     ax.set_ylabel('iteration')
-    ax.set_title(res_param_lbl, loc='left')
+    ax.set_title(ci_res_lbl, loc='left')
     ax.legend(loc=legend_loc, prop={'size': 8})
     ax.grid()
     ax.set_xlim(xmin=p_min, xmax=p_max)   # (目盛の共通化用)
