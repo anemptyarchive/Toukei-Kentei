@@ -63,6 +63,8 @@ k = 3.0
 u = 1.0
 x_min = np.min([mu - k*sgm for mu, sgm in zip(mu_pop_lt, sigma_pop_lt)]) # 標準偏差の定数倍
 x_max = np.max([mu + k*sgm for mu, sgm in zip(mu_pop_lt, sigma_pop_lt)]) # 標準偏差の定数倍
+#x_min = np.min(x_lt) # 最小値
+#x_max = np.max(x_lt) # 最大値
 x_min = np.floor(x_min /u)*u # u単位で切り下げ
 x_max = np.ceil(x_max /u)*u  # u単位で切り上げ
 print('x-axis size:', x_min, x_max)
@@ -477,7 +479,7 @@ def update(i):
         zorder=30
     ) # 中央領域
 
-    ax.set_xlabel('$t = \\frac{\\bar{x} - \\mu_{smp}}{\\sigma_{smp}}$')
+    ax.set_xlabel('$t = \\frac{d - \\mu_{smp}}{\\sigma_{smp}}$')
     ax2x.set_xticks(
         ticks =[t_obs, cr_bound_lower, cr_bound_upper], 
         labels=['$t_{obs}$', '$t_{1-\\frac{\\alpha}{2}}$', '$t_{\\frac{\\alpha}{2}}$']
@@ -538,6 +540,17 @@ print('t_α/2:', cr_bound_lower, cr_bound_upper)
 # %%
 
 ### 表示範囲の設定 -----
+
+# δ軸の範囲を設定
+k = 4.0
+u = 0.5
+delta_size  = cr_bound_upper * np.sqrt(np.sum([sgm2 / n for sgm2, n in zip(sigma2_pop_lt, N_lt)])) # 信頼区間の半サイズ
+delta_size *= k # 定数倍
+delta_size  = np.ceil(delta_size /u)*u # u単位で切り上げ
+delta_min   = delta_pop - delta_size
+delta_max   = delta_pop + delta_size
+print('δ-axis size:', delta_min, delta_max)
+
 
 # 母分布のp軸の範囲を設定
 u = 0.25
@@ -627,7 +640,7 @@ def update(I):
 
     # 標本分布のパラメータを計算
     mu_smp     = np.subtract(*mu_pop_lt)
-    sigma2_smp = np.sum([sgm2 / n for sgm2, n in zip(sigma2_pop_lt, N_lt)])
+    sigma2_smp = np.sum([sgm2 / n for sgm2, n in zip(sigma2_hat_lt, N_lt)])
     sigma_smp  = np.sqrt(sigma2_smp)
 
     # 標本平均の差を計算
@@ -945,8 +958,8 @@ def update(I):
     ax.set_title(ci_res_lbl, loc='left')
     ax.legend(loc='upper left', prop={'size': 8})
     ax.grid()
-    ax.set_xlim(xmin=d_min, xmax=d_max)   # (目盛の共通化用)
-    ax2x.set_xlim(xmin=d_min, xmax=d_max) # (目盛の共通化用)
+    ax.set_xlim(xmin=delta_min, xmax=delta_max)   # (目盛の共通化用)
+    ax2x.set_xlim(xmin=delta_min, xmax=delta_max) # (目盛の共通化用)
     ax.set_ylim(ymin=0, ymax=iter_num+1) # 表示範囲を固定
     ax.invert_yaxis() # 推定結果を昇順に表示
 
