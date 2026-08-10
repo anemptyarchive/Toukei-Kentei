@@ -9,18 +9,6 @@
 
 # %%
 
-# ライブラリの読込 --------------------------------------------------------------
-
-# ライブラリを読込
-import numpy as np
-from scipy.stats import binom, norm
-import matplotlib.pyplot as plt
-from matplotlib.gridspec import GridSpec
-from matplotlib.animation import FuncAnimation
-
-
-# %%
-
 # ディレクトリの設定 -------------------------------------------------------------
 
 # ライブラリを読込
@@ -35,6 +23,19 @@ dir_path  = PROJECT_DIR.as_posix()
 dir_path += '/figure/confidence_interval/' # パスを指定
 dir_path += 'estimate_proportion/' # フォルダを指定
 print(dir_path)
+
+
+# %%
+
+# ライブラリの読込 --------------------------------------------------------------
+
+# ライブラリを読込
+import numpy as np
+from scipy.stats import binom, norm
+import matplotlib.pyplot as plt
+from matplotlib.offsetbox import AnchoredText
+from matplotlib.gridspec import GridSpec
+from matplotlib.animation import FuncAnimation
 
 
 # %%
@@ -104,9 +105,6 @@ print('p(z) size:    ', Pz_max)
 # 余白を指定
 margin_ratio = 0.05
 
-# 凡例の表示位置を設定
-legend_loc = 'upper left' if p_pop >= 0.5 else 'upper right'
-
 # 図を初期化
 fig, axes = plt.subplots(
     nrows=3, ncols=1, 
@@ -132,19 +130,19 @@ def update(i):
     # 値を設定
     n = i + 1 # 試行回数
 
-    # シードを設定(変化の安定化用):(ノートとの対応用)
-    np.random.seed(10)
+    # シードを設定:(ノートとの対応用)
+    np.random.seed(10) # (変化の安定化用)
     
     # 標本を生成
     x_smp, = np.random.binomial(n=n, p=p_pop, size=1)
-    #x_smp = np.floor((n+1) * p_pop) # 最頻値で代用(変化の安定化用)
+    #x_smp = np.floor((n+1) * p_pop) # 最頻値で代用:(変化の安定化用)
 
     # 標本統計量を計算
     p_hat = x_smp / n
 
     # 標本分布のパラメータを計算
     mu_smp     = p_pop
-    sigma2_smp = p_pop * (1.0-p_pop) / n
+    sigma2_smp = p_hat * (1.0-p_hat) / n
     sigma_smp  = np.sqrt(sigma2_smp)
 
     # 標本統計量を標準化
@@ -157,9 +155,9 @@ def update(i):
     ##### 母分布の作図 -----
 
     # x軸の範囲を設定
-    x_add = 1 # (整数)
-    x_min = -x_add 
-    x_max = n + x_add
+    x_margin = 1 # (整数)
+    x_min    = -x_margin 
+    x_max    = n + x_margin
 
     # x軸の値を作成
     x_vec = np.arange(start=x_min, stop=x_max+1, step=1)
@@ -167,8 +165,12 @@ def update(i):
     # 母分布の確率を計算
     pop_prob_vec = binom.pmf(k=x_vec, n=n, p=p_pop)
 
+    # 信頼区間のラベルを作成
+    ci_param_lbl  = f'$N = {n}, '
+    ci_param_lbl += f'\\alpha = {alpha:.2f}$'
+
     # 母分布のラベルを作成
-    pop_param_lbl = f'$N = {n}, '+'p_{pop} = '+f'{p_pop:.2f}$'
+    pop_param_lbl = '$p_{pop} = '+f'{p_pop:.2f}$'
 
     # 母分布を描画
     ax   = axes[0]
@@ -204,26 +206,34 @@ def update(i):
             zorder=22
         ) # 信頼区間の境界値
 
+    # ラベルを表示
+    at = AnchoredText(
+        s=pop_param_lbl, frameon=True, 
+        loc='upper left'#, prop={'fontsize': 10}
+    )
+    at.patch.set_linewidth(0.5)
+    at.patch.set_alpha(0.8)
+    ax.add_artist(at)
+
     ax.set_xlabel('$x$')
     ax2x.set_xticks(
         ticks =[n*p_pop, x_smp+1e-10, n*ci_bound_lower, n*ci_bound_upper], 
         labels=['$N p_{pop}$', '$x_{smp}$', '$N L$', '$N U$']
     ) # 信頼区間のラベル
     ax.set_ylabel('$Bin(x \\mid n, p_{pop})$')
-    ax.set_title(pop_param_lbl, loc='left')
-    #ax.legend(loc=legend_loc, prop={'size': 8})
+    ax.set_title(ci_param_lbl, loc='left')
     ax.grid()
     ax.set_xlim(xmin=x_min, xmax=x_max)   # (目盛の共通化用)
     ax2x.set_xlim(xmin=x_min, xmax=x_max) # (目盛の共通化用)
     ax.set_ylim(ymin=-margin_ratio*Px_max, ymax=(1.0+margin_ratio)*Px_max) # 表示範囲を固定, 余白を追加
     
-    # ラベルの装飾を調整(表示順の変更用)
+    # 凡例ラベルを調整(表示順の変更用)
     order = [1, 0] # 表示順を指定
     handles, labels = ax.get_legend_handles_labels() # 凡例情報を取得
     ax.legend(
         handles=[handles[i] for i in order], 
         labels =[labels[i] for i in order], 
-        loc=legend_loc, prop={'size': 8}
+        loc='upper right', prop={'size': 8}
     )
 
     ##### 標本分布の作図 -----
@@ -242,8 +252,8 @@ def update(i):
     smp_param_lbl  = '$\\hat{p}_{obs} = '+f'{p_hat:.2f}$\n'
     smp_param_lbl += '$\\mu_{smp} = p_{pop} = '+f'{mu_smp:.2f}, '
     smp_param_lbl += '\\sigma_{smp} \\approx \\sqrt{\\frac{\\hat{p}_{obs} (1-\\hat{p}_{obs})}{N}} = '+f'{sigma_smp:.2f}$\n'
-    smp_param_lbl += '$L = \\hat{p}_{obs} - z_{\\frac{\\alpha}{2}} \\sigma_{smp} = '+f'{ci_bound_lower:.2f}, '
-    smp_param_lbl += 'U = \\hat{p}_{obs} + z_{\\frac{\\alpha}{2}} \\sigma_{smp} = '+f'{ci_bound_upper:.2f}$'
+    smp_param_lbl += '$L = \\hat{p}_{obs} - z_{\\frac{\\alpha}{2}} \\sigma_{smp} = '+f'{ci_bound_lower:.2f}$\n'
+    smp_param_lbl += '$U = \\hat{p}_{obs} + z_{\\frac{\\alpha}{2}} \\sigma_{smp} = '+f'{ci_bound_upper:.2f}$'
 
     # 標本分布を描画
     ax   = axes[1]
@@ -282,6 +292,15 @@ def update(i):
         zorder=30
     ) # 信頼区間
 
+    # ラベルを表示
+    at = AnchoredText(
+        s=smp_param_lbl, frameon=True, 
+        loc='upper left'#, prop={'fontsize': 10}
+    )
+    at.patch.set_linewidth(0.5)
+    at.patch.set_alpha(0.8)
+    ax.add_artist(at)
+
     ax.set_xlabel('$\\hat{p} = \\frac{x}{n}$')
     ax2x.set_xticks(
         ticks =[p_pop, p_hat+1e-10, ci_bound_lower, ci_bound_upper], 
@@ -293,33 +312,38 @@ def update(i):
         ]
     ) # 信頼区間のラベル
     ax.set_ylabel('$N(\\hat{p} \\mid \\mu_{smp}, \\sigma_{smp}^2)$')
-    ax.set_title(smp_param_lbl, loc='left')
-    #ax.legend(loc=legend_loc, prop={'size': 8})
     ax.grid()
     ax.set_xlim(xmin=p_min, xmax=p_max)   # (目盛の共通化用)
     ax2x.set_xlim(xmin=p_min, xmax=p_max) # (目盛の共通化用)
     ax.set_ylim(ymin=-margin_ratio*Px_bar_max, ymax=(1.0+margin_ratio)*Px_bar_max) # 表示範囲を固定, 余白を追加
 
-    # ラベルの装飾を調整(重なる対策用)
-    halignments = ['center', 'center', 'right', 'left'] # 表示位置を指定
+    # 目盛ラベルを調整(ラベルが重なる対策用)
+    halignments = ['center', 'center', 'left', 'left'] # 表示位置を指定
+    rotations   = [0, 0, 15, 15] # 表示角度を指定
     labels      = ax2x.get_xticklabels() # 軸情報を取得
-    for label, ha in zip(labels, halignments):
+    for label, ha, r in zip(labels, halignments, rotations):
         label.set_ha(ha)
+        label.set_rotation(r)
 
-    # ラベルの装飾を調整(表示順の変更用)
+    # 凡例ラベルを調整(表示順の変更用)
     order = [1, 2, 3, 4, 5, 0] # 表示順を指定
     handles, labels = ax.get_legend_handles_labels() # 凡例情報を取得
     ax.legend(
         handles=[handles[i] for i in order], 
         labels =[labels[i] for i in order], 
-        loc=legend_loc, prop={'size': 8}
+        loc='upper right', prop={'size': 8}
     )
 
     ##### 標準化分布の作図 -----
 
     # z軸の範囲を設定
-    z_min = (p_min - p_hat) / sigma_smp
-    z_max = (p_max - p_hat) / sigma_smp
+    if n > 1: # 初回を除く
+        z_min = (p_min - mu_smp) / sigma_smp
+        z_max = (p_max - mu_smp) / sigma_smp
+    else: # (発散の回避用)
+        tmp_sigma_smp = np.sqrt(p_pop * (1.0-p_pop) / n)
+        z_min = (p_min - mu_smp) / tmp_sigma_smp
+        z_max = (p_max - mu_smp) / tmp_sigma_smp
 
     # z軸の値を作成
     z_vec = np.linspace(start=z_min, stop=z_max, num=1001)
@@ -333,9 +357,8 @@ def update(i):
 
     # 標本分布のラベルを作成
     std_param_lbl  = '$z_{obs} = '+f'{z_obs:.2f}$\n'
-    std_param_lbl += f'$\\alpha = {alpha:.2f}, '
-    std_param_lbl += 'z_{1-\\frac{\\alpha}{2}} = '+f'{cr_bound_lower:.2f}, '
-    std_param_lbl += 'z_{\\frac{\\alpha}{2}} = '+f'{cr_bound_upper:.2f}$'
+    std_param_lbl += '$z_{1-\\frac{\\alpha}{2}} = '+f'{cr_bound_lower:.2f}$\n'
+    std_param_lbl += '$z_{\\frac{\\alpha}{2}} = '+f'{cr_bound_upper:.2f}$'
 
     # 標準化分布を描画
     ax   = axes[2]
@@ -363,36 +386,64 @@ def update(i):
     for idx, z in enumerate([cr_bound_lower, cr_bound_upper]):
         ax.axvline(
             x=z, 
-            color='black', linewidth=1.0, linestyle='-.', 
+            color='purple', linewidth=1.0, linestyle='-.', 
             label='central bounds' if idx == 0 else None, 
             zorder=22
         ) # 中央領域の境界値
+        ax.axvline(
+            x=z_obs+z, 
+            color='black', linewidth=1.0, linestyle='-.', 
+            zorder=23
+        ) # 信頼区間の境界値
     ax.hlines(
         y=0.0, xmin=cr_bound_lower, xmax=cr_bound_upper, 
         color='purple', linewidth=2.0, 
         zorder=30
     ) # 中央領域
 
+    # ラベルを表示
+    at = AnchoredText(
+        s=std_param_lbl, frameon=True, 
+        loc='upper left'#, prop={'fontsize': 10}
+    )
+    at.patch.set_linewidth(0.5)
+    at.patch.set_alpha(0.8)
+    ax.add_artist(at)
+
     ax.set_xlabel('$z = \\frac{\\hat{p} - \\mu_{smp}}{\\sigma_{smp}}$')
     ax2x.set_xticks(
-        ticks =[z_obs, cr_bound_lower, cr_bound_upper], 
-        labels=['$z_{obs}$', '$z_{1-\\frac{\\alpha}{2}}$', '$z_{\\frac{\\alpha}{2}}$']
+        ticks =[
+            z_obs, 
+            cr_bound_lower, cr_bound_upper, 
+            z_obs+cr_bound_lower, z_obs+cr_bound_upper
+        ], 
+        labels=[
+            '$z_{obs}$', 
+            '$z_{1-\\frac{\\alpha}{2}}$', '$z_{\\frac{\\alpha}{2}}$', 
+            '$z_{obs} - z_{\\frac{\\alpha}{2}}$', '$z_{obs} + z_{\\frac{\\alpha}{2}}$'
+        ]
     ) # 中央領域のラベル
     ax.set_ylabel('$N(z \\mid 0, 1)$')
-    ax.set_title(std_param_lbl, loc='left')
-    #ax.legend(loc=legend_loc, prop={'size': 8})
     ax.grid()
     ax.set_xlim(xmin=z_min, xmax=z_max)   # (目盛の共通化用)
     ax2x.set_xlim(xmin=z_min, xmax=z_max) # (目盛の共通化用)
     ax.set_ylim(ymin=-margin_ratio*Pz_max, ymax=(1.0+margin_ratio)*Pz_max) # 余白を追加
 
-    # ラベルの装飾を調整(表示順の変更用)
+    # 目盛ラベルを調整(ラベルが重なる対策用)
+    halignments = ['center', 'center', 'center', 'left', 'left'] # 表示位置を指定
+    rotations   = [0, 0, 0, 15, 15] # 表示位置を指定
+    labels      = ax2x.get_xticklabels() # 軸情報を取得
+    for label, ha, r in zip(labels, halignments, rotations):
+        label.set_ha(ha)
+        label.set_rotation(r)
+
+    # 凡例ラベルを調整(表示順の変更用)
     order = [1, 2, 0] # 表示順を指定
     handles, labels = ax.get_legend_handles_labels() # 凡例情報を取得
     ax.legend(
         handles=[handles[i] for i in order], 
         labels =[labels[i] for i in order], 
-        loc=legend_loc, prop={'size': 8}
+        loc='upper right', prop={'size': 8}
     )
 
 # 動画を作成
@@ -426,15 +477,23 @@ N = 20
 ### 変数の設定 -----
 
 # x軸の範囲を設定
-x_lower = 0
-x_upper = N
-x_add   = 0.5
-x_min   = x_lower - x_add
-x_max   = x_upper + x_add
+x_lower  = 0
+x_upper  = N
+x_margin = 0.5
+x_min    = x_lower - x_margin
+x_max    = x_upper + x_margin
 print('x-axis size:', x_min, x_max)
 
 # x軸の値を作成
 x_vec = np.arange(start=x_lower, stop=x_upper+1, step=1)
+
+
+# p軸の範囲を設定
+p_min = x_min / N
+p_max = x_max / N
+
+# p軸の値を作成
+p_vec = np.linspace(start=p_min, stop=p_max, num=1001)
 
 
 # %%
@@ -474,9 +533,6 @@ print('p(z) size:    ', Pz_max)
 
 # 余白を指定
 margin_ratio = 0.05
-
-# 凡例の表示位置を設定
-legend_loc = 'upper left' if p_pop >= 0.5 else 'upper right'
 
 # 図を初期化
 fig = plt.figure(
@@ -527,7 +583,7 @@ def update(I):
 
     # 標本分布のパラメータを計算
     mu_smp     = p_pop
-    sigma2_smp = p_pop * (1.0-p_pop) / N
+    sigma2_smp = p_hat * (1.0-p_hat) / N
     sigma_smp  = np.sqrt(sigma2_smp)
 
     # 標本統計量を標準化
@@ -543,9 +599,13 @@ def update(I):
 
     ##### 母分布の作図 -----
 
+    # 信頼区間のラベルを作成
+    ci_param_lbl  = f'$i = {I}, '
+    ci_param_lbl += f'N = {N}, '
+    ci_param_lbl += f'\\alpha = {alpha:.2f}$'
+
     # 母分布のラベルを作成
-    pop_param_lbl  = f'$i = {I}$\n'
-    pop_param_lbl += f'$N = {N}, '+'p_{pop} = '+f'{p_pop:.2f}$'
+    pop_param_lbl = '$p_{pop} = '+f'{p_pop:.2f}$'
 
     # 母分布を描画
     ax   = axes[0]
@@ -581,37 +641,38 @@ def update(I):
             zorder=22
         ) # 信頼区間の境界値
 
+    # ラベルを表示
+    at = AnchoredText(
+        s=pop_param_lbl, frameon=True, 
+        loc='upper left'#, prop={'fontsize': 10}
+    )
+    at.patch.set_linewidth(0.5)
+    at.patch.set_alpha(0.8)
+    ax.add_artist(at)
+
     ax.set_xlabel('$x$')
     ax2x.set_xticks(
         ticks =[N*p_pop, x_smp+1e-10, N*ci_bound_lower, N*ci_bound_upper], 
         labels=['$N p_{pop}$', '$x_i$', '$N L_i$', '$N U_i$']
     ) # 信頼区間のラベル
     ax.set_ylabel('$Bin(x \\mid n, p_{pop})$')
-    ax.set_title(pop_param_lbl, loc='left')
-    #ax.legend(loc=legend_loc, prop={'size': 8})
+    ax.set_title(ci_param_lbl, loc='left')
     ax.grid()
     ax.set_xlim(xmin=x_min, xmax=x_max)   # (目盛の共通化用)
     ax2x.set_xlim(xmin=x_min, xmax=x_max) # (目盛の共通化用)
     ax.set_ylim(ymin=-margin_ratio*Px_max, ymax=(1.0+margin_ratio)*Px_max) # 表示範囲を固定, 余白を追加
     
-    # ラベルの装飾を調整(表示順の変更用)
+    # 凡例ラベルを調整(表示順の変更用)
     order = [1, 0] # 表示順を指定
     handles, labels = ax.get_legend_handles_labels() # 凡例情報を取得
     ax.legend(
         handles=[handles[i] for i in order], 
         labels =[labels[i] for i in order], 
-        loc=legend_loc, prop={'size': 8}
+        loc='upper right', prop={'size': 8}
     )
 
     ##### 標本分布の作図 -----
 
-    # p軸の範囲を設定
-    p_min = x_min / N
-    p_max = x_max / N
-
-    # p軸の値を作成
-    p_vec = np.linspace(start=p_min, stop=p_max, num=1001)
-    
     # 標本分布の確率密度を計算
     smp_dens_vec = norm.pdf(x=p_vec, loc=mu_smp, scale=sigma_smp)
 
@@ -619,8 +680,8 @@ def update(I):
     smp_param_lbl  = '$\\hat{p}_i = '+f'{p_hat:.2f}$\n'
     smp_param_lbl += '$\\mu_{smp} = p_{pop} = '+f'{mu_smp:.2f}, '
     smp_param_lbl += '\\sigma_{smp} \\approx \\sqrt{\\frac{\\hat{p}_i (1-\\hat{p}_i)}{N}} = '+f'{sigma_smp:.2f}$\n'
-    smp_param_lbl += '$L_i = \\hat{p}_i - z_{\\frac{\\alpha}{2}} \\sigma_{smp} = '+f'{ci_bound_lower:.2f}, '
-    smp_param_lbl += 'U_i = \\hat{p}_i + z_{\\frac{\\alpha}{2}} \\sigma_{smp} = '+f'{ci_bound_upper:.2f}$'
+    smp_param_lbl += '$L_i = \\hat{p}_i - z_{\\frac{\\alpha}{2}} \\sigma_{smp} = '+f'{ci_bound_lower:.2f}$\n'
+    smp_param_lbl += '$U_i = \\hat{p}_i + z_{\\frac{\\alpha}{2}} \\sigma_{smp} = '+f'{ci_bound_upper:.2f}$'
 
     # 標本分布を描画
     ax   = axes[1]
@@ -659,6 +720,15 @@ def update(I):
         zorder=30
     ) # 信頼区間
 
+    # ラベルを表示
+    at = AnchoredText(
+        s=smp_param_lbl, frameon=True, 
+        loc='upper left'#, prop={'fontsize': 10}
+    )
+    at.patch.set_linewidth(0.5)
+    at.patch.set_alpha(0.8)
+    ax.add_artist(at)
+
     ax.set_xlabel('$\\hat{p} = \\frac{x}{n}$')
     ax2x.set_xticks(
         ticks =[p_pop, p_hat+1e-10, ci_bound_lower, ci_bound_upper], 
@@ -670,33 +740,31 @@ def update(I):
         ]
     ) # 信頼区間のラベル
     ax.set_ylabel('$N(\\hat{p} \\mid \\mu_{smp}, \\sigma_{smp}^2)$')
-    ax.set_title(smp_param_lbl, loc='left')
-    #ax.legend(loc=legend_loc, prop={'size': 8})
     ax.grid()
     ax.set_xlim(xmin=p_min, xmax=p_max)   # (目盛の共通化用)
     ax2x.set_xlim(xmin=p_min, xmax=p_max) # (目盛の共通化用)
     ax.set_ylim(ymin=-margin_ratio*Px_bar_max, ymax=(1.0+margin_ratio)*Px_bar_max) # 表示範囲を固定, 余白を追加
-
-    # ラベルの装飾を調整(重なる対策用)
+    '''
+    # 目盛ラベルを調整(重なる対策用)
     halignments = ['center', 'center', 'right', 'left'] # 表示位置を指定
     labels      = ax2x.get_xticklabels() # 軸情報を取得
     for label, ha in zip(labels, halignments):
         label.set_ha(ha)
-
-    # ラベルの装飾を調整(表示順の変更用)
+    '''
+    # 凡例ラベルを調整(表示順の変更用)
     order = [1, 2, 3, 4, 5, 0] # 表示順を指定
     handles, labels = ax.get_legend_handles_labels() # 凡例情報を取得
     ax.legend(
         handles=[handles[i] for i in order], 
         labels =[labels[i] for i in order], 
-        loc=legend_loc, prop={'size': 8}
+        loc='upper right', prop={'size': 8}
     )
 
     ##### 標準化分布の作図 -----
 
     # z軸の範囲を設定
-    z_min = (p_min - p_hat) / sigma_smp
-    z_max = (p_max - p_hat) / sigma_smp
+    z_min = (p_min - mu_smp) / sigma_smp
+    z_max = (p_max - mu_smp) / sigma_smp
 
     # z軸の値を作成
     z_vec = np.linspace(start=z_min, stop=z_max, num=1001)
@@ -718,9 +786,8 @@ def update(I):
 
     # 標本分布のラベルを作成
     std_param_lbl  = '$z_i = '+f'{z_obs:.2f}$\n'
-    std_param_lbl += f'$\\alpha = {alpha:.2f}, '
-    std_param_lbl += 'z_{1-\\frac{\\alpha}{2}} = '+f'{cr_bound_lower:.2f}, '
-    std_param_lbl += 'z_{\\frac{\\alpha}{2}} = '+f'{cr_bound_upper:.2f}$'
+    std_param_lbl += '$z_{1-\\frac{\\alpha}{2}} = '+f'{cr_bound_lower:.2f}$\n'
+    std_param_lbl += '$z_{\\frac{\\alpha}{2}} = '+f'{cr_bound_upper:.2f}$'
 
     # 標準化分布を描画
     ax   = axes[2]
@@ -745,7 +812,7 @@ def update(I):
         zorder=10
     ) # 標準化分布
     for idx, p in enumerate([p_pop, p_hat]):
-        z = (p - p_hat) / sigma_smp # 標準化
+        z = (p - mu_smp) / sigma_smp # 標準化
         ax.axvline(
             x=z, 
             color=['red', 'black'][idx], linewidth=1.0, linestyle='--', 
@@ -754,36 +821,60 @@ def update(I):
     for idx, z in enumerate([cr_bound_lower, cr_bound_upper]):
         ax.axvline(
             x=z, 
-            color='black', linewidth=1.0, linestyle='-.', 
+            color='purple', linewidth=1.0, linestyle='-.', 
             label='central bounds' if idx == 0 else None, 
             zorder=22
         ) # 中央領域の境界値
+        ax.axvline(
+            x=z_obs+z, 
+            color='black', linewidth=1.0, linestyle='-.', 
+            zorder=23
+        ) # 信頼区間の境界値
     ax.hlines(
         y=0.0, xmin=cr_bound_lower, xmax=cr_bound_upper, 
         color='purple', linewidth=2.0, 
         zorder=30
     ) # 中央領域
 
+    # ラベルを表示
+    at = AnchoredText(
+        s=std_param_lbl, frameon=True, 
+        loc='upper left'#, prop={'fontsize': 10}
+    )
+    at.patch.set_linewidth(0.5)
+    at.patch.set_alpha(0.8)
+    ax.add_artist(at)
+
     ax.set_xlabel('$z = \\frac{\\hat{p} - \\mu_{smp}}{\\sigma_{smp}}$')
     ax2x.set_xticks(
-        ticks =[z_obs, cr_bound_lower, cr_bound_upper], 
-        labels=['$z_i$', '$z_{1-\\frac{\\alpha}{2}}$', '$z_{\\frac{\\alpha}{2}}$']
+        ticks =[
+            z_obs, 
+            z_obs+cr_bound_lower, z_obs+cr_bound_upper
+        ], 
+        labels=[
+            '$z_i$', 
+            '$z_i - z_{\\frac{\\alpha}{2}}$', '$z_i + z_{\\frac{\\alpha}{2}}$'
+        ]
     ) # 中央領域のラベル
     ax.set_ylabel('$N(z \\mid 0, 1)$')
-    ax.set_title(std_param_lbl, loc='left')
-    #ax.legend(loc=legend_loc, prop={'size': 8})
     ax.grid()
     ax.set_xlim(xmin=z_min, xmax=z_max)   # (目盛の共通化用)
     ax2x.set_xlim(xmin=z_min, xmax=z_max) # (目盛の共通化用)
     ax.set_ylim(ymin=-margin_ratio*Pz_max, ymax=(1.0+margin_ratio)*Pz_max) # 余白を追加
-
-    # ラベルの装飾を調整(表示順の変更用)
+    '''
+    # 目盛ラベルを調整(ラベルが重なる対策用)
+    halignments = ['center', 'right', 'left'] # 表示位置を指定
+    labels      = ax2x.get_xticklabels() # 軸情報を取得
+    for label, ha in zip(labels, halignments):
+        label.set_ha(ha)
+    '''
+    # 凡例ラベルを調整(表示順の変更用)
     order = [2, 0, 1] # 表示順を指定
     handles, labels = ax.get_legend_handles_labels() # 凡例情報を取得
     ax.legend(
         handles=[handles[i] for i in order], 
         labels =[labels[i] for i in order], 
-        loc=legend_loc, prop={'size': 8}
+        loc='upper right', prop={'size': 8}
     )
 
     ##### 信頼区間の作図 -----
@@ -832,7 +923,7 @@ def update(I):
     ) # 信頼区間のラベル
     ax.set_ylabel('iteration')
     ax.set_title(ci_res_lbl, loc='left')
-    ax.legend(loc=legend_loc, prop={'size': 8})
+    ax.legend(loc='upper right', prop={'size': 8})
     ax.grid()
     ax.set_xlim(xmin=p_min, xmax=p_max)   # (目盛の共通化用)
     ax2x.set_xlim(xmin=p_min, xmax=p_max) # (目盛の共通化用)
