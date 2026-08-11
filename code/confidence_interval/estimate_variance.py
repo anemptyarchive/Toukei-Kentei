@@ -9,18 +9,6 @@
 
 # %%
 
-# ライブラリの読込 --------------------------------------------------------------
-
-# ライブラリを読込
-import numpy as np
-from scipy.stats import norm, chi2
-import matplotlib.pyplot as plt
-from matplotlib.gridspec import GridSpec
-from matplotlib.animation import FuncAnimation
-
-
-# %%
-
 # ディレクトリの設定 -------------------------------------------------------------
 
 # ライブラリを読込
@@ -35,6 +23,19 @@ dir_path  = PROJECT_DIR.as_posix()
 dir_path += '/figure/confidence_interval/' # パスを指定
 dir_path += 'estimate_variance/' # フォルダを指定
 print(dir_path)
+
+
+# %%
+
+# ライブラリの読込 --------------------------------------------------------------
+
+# ライブラリを読込
+import numpy as np
+from scipy.stats import norm, chi2
+import matplotlib.pyplot as plt
+from matplotlib.offsetbox import AnchoredText
+from matplotlib.gridspec import GridSpec
+from matplotlib.animation import FuncAnimation
 
 
 # %%
@@ -247,9 +248,12 @@ def update(i):
         a=x_n[:n], bins=class_num, range=(bound_min, bound_max), density=True
     )
 
+    # 信頼区間のラベルを作成
+    ci_param_lbl  = f'$N = {n}, '
+    ci_param_lbl += f'\\alpha = {alpha:.2f}$'
+
     # 母集団のラベルを作成
-    pop_param_lbl  = f'$N = {n}$\n'
-    pop_param_lbl += '$\\mu_{pop} = '+f'{mu_pop:.2f}, '
+    pop_param_lbl  = '$\\mu_{pop} = '+f'{mu_pop:.2f}, '
     pop_param_lbl += '\\sigma_{pop} = '+f'{sigma_pop:.2f}$\n'
     pop_param_lbl += '$\\bar{x} = '+f'{x_bar:.2f}, '
     pop_param_lbl += '\\hat{\\sigma}_{obs} = '+f'{sigma_hat:.2f}$'
@@ -277,19 +281,22 @@ def update(i):
         label='population distribution', 
         zorder=10
     ) # 母分布
-    for idx, x in enumerate([mu_pop, mu_pop+sigma_pop, x_bar, x_bar+sigma_hat]):
+    for idx, sgm in enumerate([0.0, sigma_pop, sigma_hat]):
+        x = mu_pop + sgm # 平行移動
         ax.axvline(
             x=x, 
-            color=['red', 'red', 'black', 'black'][idx], linewidth=1.0, linestyle='--', 
-            zorder=[20, 20, 21, 21][idx]
+            color=['red', 'red', 'black'][idx], linewidth=1.0, linestyle='--', 
+            zorder=[20, 20, 21][idx]
         ) # 母数・標本統計量
-    for x in [mu_pop+np.sqrt(ci_bound_lower), mu_pop+np.sqrt(ci_bound_upper)]:
+    for sgm2 in [ci_bound_lower, ci_bound_upper]:
+        x = mu_pop + np.sqrt(sgm2) # 平行移動
         ax.axvline(
             x=x, 
             color='black', linewidth=1.0, linestyle='-.', 
             zorder=22
         ) # 信頼区間の境界値
-    sgm_dens = norm.pdf(x=mu_pop+sigma_pop, loc=mu_pop, scale=sigma_pop)
+    sgm_x    = mu_pop + sigma_pop
+    sgm_dens = norm.pdf(x=sgm_x, loc=mu_pop, scale=sigma_pop)
     ax.hlines(
         y=sgm_dens, xmin=mu_pop, xmax=mu_pop+sigma_pop, 
         color='red', linewidth=1.0, 
@@ -297,16 +304,25 @@ def update(i):
         zorder=30
     ) # 母標準偏差
 
+    # ラベルを表示
+    at = AnchoredText(
+        s=pop_param_lbl, frameon=True, 
+        loc='upper left'#, prop={'fontsize': 10}
+    )
+    at.patch.set_linewidth(0.5)
+    at.patch.set_alpha(0.8)
+    ax.add_artist(at)
+
     ax.set_xlabel('$x$')
     ax2x.set_xticks(
-        ticks =[mu_pop, mu_pop+sigma_pop, x_bar, x_bar+sigma_hat], 
-        labels=['$\\mu_{pop}$', '$\\mu_{pop} + \\sigma_{pop}$', '$\\bar{x}$', '$\\bar{x} + \\hat{\\sigma}_{obs}$']
+        ticks =[mu_pop, mu_pop+sigma_pop, mu_pop+sigma_hat], 
+        labels=['$\\mu_{pop}$', '$\\mu_{pop} + \\sigma_{pop}$', '$\\mu_{pop} + \\hat{\\sigma}_{obs}$']
     ) # パラメータのラベル
     ax.set_ylabel('$N(x \\mid \\mu_{pop}, \\sigma_{pop}^2)$')
     ax2y.set_ylabel('$\\frac{N_x}{N}$')
     ax2y.yaxis.set_label_position(position='right') # (ラベルの表示位置が初期化される対策)
-    ax.set_title(pop_param_lbl, loc='left')
-    ax.legend(loc='upper left', prop={'size': 8})
+    ax.set_title(ci_param_lbl, loc='left')
+    ax.legend(loc='upper right', prop={'size': 8})
     ax.grid()
     ax.set_xlim(xmin=x_min, xmax=x_max)   # (目盛の共通化用)
     ax2x.set_xlim(xmin=x_min, xmax=x_max) # (目盛の共通化用)
@@ -317,14 +333,13 @@ def update(i):
     ax2y.set_yticks(ticks=freq_vals, labels=[f'{y:.1f}' for y in freq_vals]) # 度数軸目盛
     ax2y.set_ylim(ymin=-margin_ratio*Nx_max, ymax=(1.0+margin_ratio)*Nx_max) # (目盛の共通化用)
 
-    # ラベルの装飾を調整(重なる対策用)
+    # 目盛ラベルを調整(重なる対策用)
     halignments = [
-        'left' if mu_pop >= x_bar else 'right', 
-        'left' if mu_pop+sigma_pop >= x_bar+sigma_hat else 'center', 
         'center', 
+        'left' if mu_pop+sigma_pop >= x_bar+sigma_hat else 'center', 
         'center' if mu_pop+sigma_pop >= x_bar+sigma_hat else 'left'
     ] # 標準位置を指定
-    rotations   = [0, 30, 0, 30] # 表示角度を指定
+    rotations   = [0, 30, 30] # 表示角度を指定
     labels      = ax2x.get_xticklabels() # 軸情報を取得
     for label, ha, r in zip(labels, halignments, rotations):
         label.set_ha(ha)
@@ -332,11 +347,11 @@ def update(i):
 
     ##### σ to σ2の作図 -----
 
-    # 信頼区間のラベルを作成
+    # 変換曲線のラベルを作成
     adapt_param_lbl  = '$\\sigma_{pop}^2 = '+f'{sigma2_pop:.2f}, '
     adapt_param_lbl += '\\hat{\\sigma}_{obs}^2 = '+f'{sigma2_hat:.2f}$\n'
-    adapt_param_lbl += '$L = \\frac{(N-1) \\hat{\\sigma}_{obs}^2}{\\chi^2_{\\frac{\\alpha}{2}}} = '+f'{ci_bound_lower:.2f}, '
-    adapt_param_lbl += 'U = \\frac{(N-1) \\hat{\\sigma}_{obs}^2}{\\chi^2_{1-\\frac{\\alpha}{2}}} = '+f'{ci_bound_upper:.2f}$'
+    adapt_param_lbl += '$L = \\frac{(N-1) \\hat{\\sigma}_{obs}^2}{\\chi^2_{\\frac{\\alpha}{2}}} = '+f'{ci_bound_lower:.2f}$\n'
+    adapt_param_lbl += '$U = \\frac{(N-1) \\hat{\\sigma}_{obs}^2}{\\chi^2_{1-\\frac{\\alpha}{2}}} = '+f'{ci_bound_upper:.2f}$'
 
     # 標準偏差と分散の関係を描画
     ax   = axes[1, 0]
@@ -385,6 +400,15 @@ def update(i):
         zorder=30
     ) # 信頼区間
 
+    # ラベルを表示
+    at = AnchoredText(
+        s=adapt_param_lbl, frameon=True, 
+        loc='upper left'#, prop={'fontsize': 10}
+    )
+    at.patch.set_linewidth(0.5)
+    at.patch.set_alpha(0.8)
+    ax.add_artist(at)
+
     ax.set_xlabel('$\\sigma$')
     ax2x.set_xticks(
         ticks =[sigma_pop, sigma_hat, np.sqrt(ci_bound_lower), np.sqrt(ci_bound_upper)], 
@@ -394,15 +418,25 @@ def update(i):
     ax.set_ylabel('$\\sigma^2$')
     ax2y.set_yticks(
         ticks =[sigma2_pop, sigma2_hat, ci_bound_lower, ci_bound_upper], 
-        labels=['$\\sigma_{pop}^2$', '$\\hat{\\sigma}_{obs}^2$', '$L$', '$U$']
+        labels=['$\\sigma_{pop}^2$', '$\\hat{\\sigma}_{obs}^2$', '$L$', '$U$'], 
+        rotation=0
     ) # パラメータのラベル
-    ax.set_title(adapt_param_lbl, loc='left')
-    ax.legend(loc='upper left', prop={'size': 8})
+    ax.legend(loc='lower left', prop={'size': 8})
     ax.grid()
     ax.set_xlim(xmin=sigma_min, xmax=sigma_max)   # (目盛の共通化用)
     ax2x.set_xlim(xmin=sigma_min, xmax=sigma_max) # (目盛の共通化用)
     ax.set_ylim(ymin=sigma2_min, ymax=sigma2_max)   # (目盛の共通化用)
     ax2y.set_ylim(ymin=sigma2_min, ymax=sigma2_max) # (目盛の共通化用)
+
+    # 目盛ラベルを調整(重なる対策用)
+    halignments = ['center', 'center', 'right', 'left'] # 標準位置を指定
+    labels      = ax2x.get_xticklabels() # 軸情報を取得
+    for label, ha in zip(labels, halignments):
+        label.set_ha(ha)
+    valignments = ['center', 'center', 'top', 'bottom'] # 標準位置を指定
+    labels      = ax2y.get_yticklabels() # 軸情報を取得
+    for label, va in zip(labels, valignments):
+        label.set_va(va)
 
     ##### σ2 to χ2の作図 -----
 
@@ -414,7 +448,7 @@ def update(i):
         color='maroon', linewidth=1.0, 
         label='$f(\\hat{\\sigma}^2) = c \\hat{\\sigma}^2$', 
         zorder=10
-    ) # 変換曲線
+    ) # 変換直線
     ax.plot(
         (n-1)*sigma2_hat/sigma2_vec, sigma2_vec, 
         color='indigo', linewidth=1.0, 
@@ -468,9 +502,8 @@ def update(i):
 
     # 標準化分布のラベルを作成
     std_param_lbl  = '$\\chi^2_{obs} = '+f'{chi2_obs:.2f}$\n'
-    std_param_lbl += f'$\\alpha = {alpha:.2f}, '
-    std_param_lbl += '\\chi^2_{1-\\frac{\\alpha}{2}} = '+f'{cr_bound_lower:.2f}, '
-    std_param_lbl += '\\chi^2_{\\frac{\\alpha}{2}} = '+f'{cr_bound_upper:.2f}$'
+    std_param_lbl += '$\\chi^2_{1-\\frac{\\alpha}{2}} = '+f'{cr_bound_lower:.2f}$\n'
+    std_param_lbl += '$\\chi^2_{\\frac{\\alpha}{2}} = '+f'{cr_bound_upper:.2f}$'
 
     # 標準化分布を描画
     ax   = axes[2, 1]
@@ -508,20 +541,28 @@ def update(i):
         zorder=30
     ) # 中央領域
 
+    # ラベルを表示
+    at = AnchoredText(
+        s=std_param_lbl, frameon=True, 
+        loc='upper left'#, prop={'fontsize': 10}
+    )
+    at.patch.set_linewidth(0.5)
+    at.patch.set_alpha(0.8)
+    ax.add_artist(at)
+
     ax.set_xlabel('$\\chi^2 = \\frac{(n-1) \\hat{\\sigma}^2}{\\sigma_{pop}^2}$')
     ax2x.set_xticks(
         ticks =[chi2_obs, cr_bound_lower, cr_bound_upper], 
         labels=['$\\chi^2_{obs}$', '$\\chi^2_{1-\\frac{\\alpha}{2}}$', '$\\chi^2_{\\frac{\\alpha}{2}}$']
     ) # 中央領域のラベル
     ax.set_ylabel('$chi2(\\chi^2 \\mid n-1)$')
-    ax.set_title(std_param_lbl, loc='left')
     ax.legend(loc='upper right', prop={'size': 8})
     ax.grid()
     ax.set_xlim(xmin=chi2_min, xmax=chi2_max)   # (目盛の共通化用)
     ax2x.set_xlim(xmin=chi2_min, xmax=chi2_max) # (目盛の共通化用)
     ax.set_ylim(ymin=-margin_ratio*Pchi_max, ymax=(1.0+margin_ratio)*Pchi_max) # 余白を追加
 
-    # ラベルの装飾を調整(表示順の変更用)
+    # 凡例ラベルを調整(表示順の変更用)
     order = [1, 2, 0] # 表示順を指定
     handles, labels = ax.get_legend_handles_labels() # 凡例情報を取得
     ax.legend(
@@ -633,7 +674,7 @@ margin_ratio = 0.05
 
 # 図を初期化
 fig = plt.figure(
-    figsize=(15, 12.5), dpi=100, facecolor='white', 
+    figsize=(16, 12), dpi=100, facecolor='white', 
     constrained_layout=True
 )
 fig.suptitle('Population Variance Confidence Interval', fontsize=20)
@@ -704,9 +745,13 @@ def update(I):
         a=x_n, bins=class_num, range=(bound_min, bound_max), density=True
     )
 
+    # 信頼区間のラベルを作成
+    ci_param_lbl  = f'$i = {I}, '
+    ci_param_lbl += f'N = {N}, '
+    ci_param_lbl += f'\\alpha = {alpha:.2f}$'
+
     # 母集団のラベルを作成
-    pop_param_lbl  = f'$i = {I}, N = {N}$\n'
-    pop_param_lbl += '$\\mu_{pop} = '+f'{mu_pop:.2f}, '
+    pop_param_lbl  = '$\\mu_{pop} = '+f'{mu_pop:.2f}, '
     pop_param_lbl += '\\sigma_{pop} = '+f'{sigma_pop:.2f}$\n'
     pop_param_lbl += '$\\bar{x}_i = '+f'{x_bar:.2f}, '
     pop_param_lbl += '\\hat{\\sigma}_i = '+f'{sigma_hat:.2f}$'
@@ -733,19 +778,22 @@ def update(I):
         label='population distribution', 
         zorder=10
     ) # 母分布
-    for idx, x in enumerate([mu_pop, mu_pop+sigma_pop, x_bar, x_bar+sigma_hat]):
+    for idx, sgm in enumerate([0.0, sigma_pop, sigma_hat]):
+        x = mu_pop + sgm # 平行移動
         ax.axvline(
             x=x, 
-            color=['red', 'red', 'black', 'black'][idx], linewidth=1.0, linestyle='--', 
-            zorder=[20, 20, 21, 21][idx]
+            color=['red', 'red', 'black'][idx], linewidth=1.0, linestyle='--', 
+            zorder=[20, 20, 21][idx]
         ) # 母数・標本統計量
-    for x in [mu_pop+np.sqrt(ci_bound_lower), mu_pop+np.sqrt(ci_bound_upper)]:
+    for sgm2 in [ci_bound_lower, ci_bound_upper]:
+        x = mu_pop + np.sqrt(sgm2) # 平行移動
         ax.axvline(
             x=x, 
             color='black', linewidth=1.0, linestyle='-.', 
             zorder=22
         ) # 信頼区間の境界値
-    sgm_dens = norm.pdf(x=mu_pop+sigma_pop, loc=mu_pop, scale=sigma_pop)
+    sgm_x    = mu_pop + sigma_pop
+    sgm_dens = norm.pdf(x=sgm_x, loc=mu_pop, scale=sigma_pop)
     ax.hlines(
         y=sgm_dens, xmin=mu_pop, xmax=mu_pop+sigma_pop, 
         color='red', linewidth=1.0, 
@@ -753,27 +801,35 @@ def update(I):
         zorder=31
     ) # 母標準偏差
 
+    # ラベルを表示
+    at = AnchoredText(
+        s=pop_param_lbl, frameon=True, 
+        loc='upper left'#, prop={'fontsize': 10}
+    )
+    at.patch.set_linewidth(0.5)
+    at.patch.set_alpha(0.8)
+    ax.add_artist(at)
+
     ax.set_xlabel('$x$')
     ax2x.set_xticks(
-        ticks =[mu_pop, mu_pop+sigma_pop, x_bar, x_bar+sigma_hat], 
-        labels=['$\\mu_{pop}$', '$\\mu_{pop} + \\sigma_{pop}$', '$\\bar{x}_i$', '$\\bar{x}_i + \\hat{\\sigma}_i$']
+        ticks =[mu_pop, mu_pop+sigma_pop, mu_pop+sigma_hat], 
+        labels=['$\\mu_{pop}$', '$\\mu_{pop} + \\sigma_{pop}$', '$\\mu_{pop} + \\hat{\\sigma}_i$']
     ) # パラメータのラベル
     ax.set_ylabel('$N(x \\mid \\mu_{pop}, \\sigma_{pop}^2)$')
-    ax.set_title(pop_param_lbl, loc='left')
-    ax.legend(loc='upper left', prop={'size': 8})
+    ax.set_title(ci_param_lbl, loc='left')
+    ax.legend(loc='upper right', prop={'size': 8})
     ax.grid()
     ax.set_xlim(xmin=x_min, xmax=x_max)   # (目盛の共通化用)
     ax2x.set_xlim(xmin=x_min, xmax=x_max) # (目盛の共通化用)
     ax.set_ylim(ymin=-margin_ratio*Px_max, ymax=(1.0+margin_ratio)*Px_max) # 余白を追加
 
-    # ラベルの装飾を調整(重なる対策用)
+    # 目盛ラベルを調整(重なる対策用)
     halignments = [
-        'left' if mu_pop >= x_bar else 'right', 
-        'left' if mu_pop+sigma_pop >= x_bar+sigma_hat else 'center', 
         'center', 
+        'left' if mu_pop+sigma_pop >= x_bar+sigma_hat else 'center', 
         'center' if mu_pop+sigma_pop >= x_bar+sigma_hat else 'left'
     ] # 標準位置を指定
-    rotations   = [0, 30, 0, 30] # 表示角度を指定
+    rotations   = [0, 30, 30] # 表示角度を指定
     labels      = ax2x.get_xticklabels() # 軸情報を取得
     for label, ha, r in zip(labels, halignments, rotations):
         label.set_ha(ha)
@@ -781,11 +837,11 @@ def update(I):
 
     ##### σ to σ2の作図 -----
 
-    # 信頼区間のラベルを作成
+    # 変換曲線のラベルを作成
     adapt_param_lbl  = '$\\sigma_{pop}^2 = '+f'{sigma2_pop:.2f}, '
     adapt_param_lbl += '\\hat{\\sigma}_i^2 = '+f'{sigma2_hat:.2f}$\n'
-    adapt_param_lbl += '$L = \\frac{(N-1) \\hat{\\sigma}_i^2}{\\chi^2_{\\frac{\\alpha}{2}}} = '+f'{ci_bound_lower:.2f}, '
-    adapt_param_lbl += 'U = \\frac{(N-1) \\hat{\\sigma}_i^2}{\\chi^2_{1-\\frac{\\alpha}{2}}} = '+f'{ci_bound_upper:.2f}$'
+    adapt_param_lbl += '$L = \\frac{(N-1) \\hat{\\sigma}_i^2}{\\chi^2_{\\frac{\\alpha}{2}}} = '+f'{ci_bound_lower:.2f}$\n'
+    adapt_param_lbl += '$U = \\frac{(N-1) \\hat{\\sigma}_i^2}{\\chi^2_{1-\\frac{\\alpha}{2}}} = '+f'{ci_bound_upper:.2f}$'
 
     # 標準偏差と分散の関係を描画
     ax   = axes[1]
@@ -834,32 +890,43 @@ def update(I):
         zorder=30
     ) # 信頼区間
 
+    # ラベルを表示
+    at = AnchoredText(
+        s=adapt_param_lbl, frameon=True, 
+        loc='upper left'#, prop={'fontsize': 10}
+    )
+    at.patch.set_linewidth(0.5)
+    at.patch.set_alpha(0.8)
+    ax.add_artist(at)
+
     ax.set_xlabel('$\\sigma$')
     ax2x.set_xticks(
         ticks =[sigma_pop, sigma_hat, np.sqrt(ci_bound_lower), np.sqrt(ci_bound_upper)], 
-        labels=['$\\sigma_{pop}$', '$\\hat{\\sigma}_i$', '$\\sqrt{L_i}$', '$\\sqrt{U_i}$']
+        labels=['$\\sigma_{pop}$', '$\\hat{\\sigma}_i$', '$\\sqrt{L_i}$', '$\\sqrt{U_i}$'], 
+        rotation=60
     ) # パラメータのラベル
     ax.set_ylabel('$\\sigma^2$')
     ax2y.set_yticks(
         ticks =[sigma2_pop, sigma2_hat, ci_bound_lower, ci_bound_upper], 
         labels=['$\\sigma_{pop}^2$', '$\\hat{\\sigma}_i^2$', '$L_i$', '$U_i$'], 
-        rotation=60
+        rotation=0
     ) # パラメータのラベル
-    ax.set_title(adapt_param_lbl, loc='left')
-    ax.legend(loc='upper left', prop={'size': 8})
+    ax.legend(loc='lower left', prop={'size': 8})
     ax.grid()
     ax.set_xlim(xmin=x_min-mu_pop, xmax=x_max-mu_pop)   # (目盛の共通化用)
     ax2x.set_xlim(xmin=x_min-mu_pop, xmax=x_max-mu_pop) # (目盛の共通化用)
     ax.set_ylim(ymin=sigma2_min, ymax=sigma2_max)   # (目盛の共通化用)
     ax2y.set_ylim(ymin=sigma2_min, ymax=sigma2_max) # (目盛の共通化用)
 
-    # ラベルの装飾を調整(重なる対策用)
+    # 目盛ラベルを調整(重なる対策用)
     halignments = ['center', 'center', 'right', 'left'] # 標準位置を指定
-    rotations   = [60, 60, 0, 0] # 表示角度を指定
     labels      = ax2x.get_xticklabels() # 軸情報を取得
-    for label, ha, r in zip(labels, halignments, rotations):
+    for label, ha in zip(labels, halignments):
         label.set_ha(ha)
-        #label.set_rotation(r)
+    valignments = ['center', 'center', 'top', 'bottom'] # 標準位置を指定
+    labels      = ax2y.get_yticklabels() # 軸情報を取得
+    for label, va in zip(labels, valignments):
+        label.set_va(va)
 
     ##### σ2 to χ2の作図 -----
 
@@ -871,7 +938,7 @@ def update(I):
         color='maroon', linewidth=1.0, 
         label='$f(\\hat{\\sigma}^2) = c \\hat{\\sigma}^2$', 
         zorder=10
-    ) # 変換曲線
+    ) # 変換直線
     ax.plot(
         (N-1)*sigma2_hat/sigma2_vec, sigma2_vec, 
         color='indigo', linewidth=1.0, 
@@ -933,9 +1000,8 @@ def update(I):
 
     # 標準化分布のラベルを作成
     std_param_lbl  = '$\\chi^2_i = '+f'{chi2_obs:.2f}$\n'
-    std_param_lbl += f'$\\alpha = {alpha:.2f}, '
-    std_param_lbl += '\\chi^2_{1-\\frac{\\alpha}{2}} = '+f'{cr_bound_lower:.2f}, '
-    std_param_lbl += '\\chi^2_{\\frac{\\alpha}{2}} = '+f'{cr_bound_upper:.2f}$'
+    std_param_lbl += '$\\chi^2_{1-\\frac{\\alpha}{2}} = '+f'{cr_bound_lower:.2f}$\n'
+    std_param_lbl += '$\\chi^2_{\\frac{\\alpha}{2}} = '+f'{cr_bound_upper:.2f}$'
 
     # 標準化分布を描画
     ax   = axes[3]
@@ -979,26 +1045,33 @@ def update(I):
         zorder=30
     ) # 中央領域
 
+    # ラベルを表示
+    at = AnchoredText(
+        s=std_param_lbl, frameon=True, 
+        loc='upper left'#, prop={'fontsize': 10}
+    )
+    at.patch.set_linewidth(0.5)
+    at.patch.set_alpha(0.8)
+    ax.add_artist(at)
+
     ax.set_xlabel('$\\chi^2 = \\frac{(n-1) \\hat{\\sigma}^2}{\\sigma_{pop}^2}$')
     ax2x.set_xticks(
         ticks =[chi2_obs, cr_bound_lower, cr_bound_upper], 
         labels=['$\\chi^2_i$', '$\\chi^2_{1-\\frac{\\alpha}{2}}$', '$\\chi^2_{\\frac{\\alpha}{2}}$']
     ) # 中央領域のラベル
     ax.set_ylabel('$chi2(\\chi^2 \\mid n-1)$')
-    ax.set_title(std_param_lbl, loc='left')
-    #ax.legend(loc='upper right', prop={'size': 8})
     ax.grid()
     ax.set_xlim(xmin=chi2_min, xmax=chi2_max)   # (目盛の共通化用)
     ax2x.set_xlim(xmin=chi2_min, xmax=chi2_max) # (目盛の共通化用)
     ax.set_ylim(ymin=-margin_ratio*Pchi_max, ymax=(1.0+margin_ratio)*Pchi_max) # 表示範囲を固定, 余白を追加
 
-    # ラベルの装飾を調整(表示順の変更用)
+    # 凡例ラベルを調整(表示順の変更用)
     order = [1, 2, 0] # 表示順を指定
     handles, labels = ax.get_legend_handles_labels() # 凡例情報を取得
     ax.legend(
         handles=[handles[i] for i in order], 
         labels =[labels[i] for i in order], 
-        loc='upper left', prop={'size': 8}
+        loc='upper right', prop={'size': 8}
     )
 
     ##### 信頼区間の作図 -----
